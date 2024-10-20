@@ -45,7 +45,7 @@ int parse_args(int argc, char* argv[]) {
     return err_code;
 }
 
-int get_wordle_words(char words[WORD_COUNT][WORD_LENGTH]) {
+int get_word_list(char words[WORD_COUNT][WORD_LENGTH]) {
     FILE *file;
     int count = 0;
     char line[WORD_LENGTH + 1]; // +1 for \n
@@ -78,33 +78,49 @@ int get_wordle_words(char words[WORD_COUNT][WORD_LENGTH]) {
 
 int main(int argc, char* argv[]) {
     int err_code = 0;
-    char wordle_words[WORD_COUNT][WORD_LENGTH];
+    char words[WORD_COUNT][WORD_LENGTH];
 
-    // the game board (green)
-    char board[NUM_ROWS][WORD_LENGTH] = {
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
+    char board[GRID_SIZE][GRID_SIZE] = {
+    {'.','.','.','.','.'},
+    {'.','.','.','.','t'},
+    {'.','.','.','.','e'},
+    {'.','r','.','.','e'},
+    {'.','o','.','.','.'},
     };
 
-    // the characters that go in the words but you don't know where (yellow)
-    char unplaced[NUM_ROWS][WORD_LENGTH] = {
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
+    char unplaced[GRID_SIZE][GRID_SIZE] = {
+    {'a','i','s','t','.'},
+    {'i','u','n','.','.'},
+    {'s','o','t','.','.'},
+    {'e','o','.','.','.'},
+    {'e','t','.','.','.'},
     };
+
+//    // the game board (green)
+//    char board[GRID_SIZE][GRID_SIZE] = {
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    };
+//
+//    // the characters that go in the words but you don't know where (yellow)
+//    char unplaced[GRID_SIZE][GRID_SIZE] = {
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    };
 
     // the final solution
-    char solution[NUM_ROWS][WORD_LENGTH] = {
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
-    {'.','.','.','.','.', '\0'},
+    char solution[GRID_SIZE][GRID_SIZE] = {
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
     };
 
     err_code = parse_args(argc, argv);
@@ -112,54 +128,59 @@ int main(int argc, char* argv[]) {
         return err_code;
     }
 
-    err_code = get_wordle_words(wordle_words);
+    // TODO: setup board and unplaced
+
+    err_code = get_word_list(words);
     if (err_code != 0) {
         return err_code;
     }
 
-    err_code = solver(board, unplaced, solution, wordle_words);
+    err_code = solver(board, unplaced, solution, words);
     if (err_code != 0) {
         return err_code;
     }
 
     logger(INFO, __func__, "Final solution...");
-    for (int i = 0; i < NUM_ROWS; i++) {
-        printf("%s\n", solution[i]);
+    for (int row = 0; row < GRID_SIZE; row++) {
+        for (int col = 0; col < GRID_SIZE; col++) {
+            printf("%c", solution[row][col]);
+        }
+        printf("\n");
     }
 
     return 0;
 }
 
 //void test() {
-//    char board[NUM_ROWS][WORD_LENGTH] = {
-//    {'.','.','.','.','.', '\0'},
-//    {'.','.','.','.','t', '\0'},
-//    {'.','.','.','.','e', '\0'},
-//    {'.','r','.','.','e', '\0'},
-//    {'.','o','.','.','.', '\0'},
+//    char board[GRID_SIZE][GRID_SIZE] = {
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','t'},
+//    {'.','.','.','.','e'},
+//    {'.','r','.','.','e'},
+//    {'.','o','.','.','.'},
 //    };
 //
-//    char unplaced[NUM_ROWS][WORD_LENGTH] = {
-//    {'a','i','s','t','.', '\0'},
-//    {'i','u','n','.','.', '\0'},
-//    {'s','o','t','.','.', '\0'},
-//    {'e','o','.','.','.', '\0'},
-//    {'e','t','.','.','.', '\0'},
+//    char unplaced[GRID_SIZE][GRID_SIZE] = {
+//    {'a','i','s','t','.'},
+//    {'i','u','n','.','.'},
+//    {'s','o','t','.','.'},
+//    {'e','o','.','.','.'},
+//    {'e','t','.','.','.'},
 //    };
 //
-//    char solution[NUM_ROWS][WORD_LENGTH] = {
-//    {'.','.','.','.','.', '\0'},
-//    {'.','.','.','.','.', '\0'},
-//    {'.','.','.','.','.', '\0'},
-//    {'.','.','.','.','.', '\0'},
-//    {'.','.','.','.','.', '\0'},
+//    char solution[GRID_SIZE][GRID_SIZE] = {
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
+//    {'.','.','.','.','.'},
 //    };
 //
-//    char final_solution[NUM_ROWS][WORD_LENGTH] = {
-//    {'f','i','a','t','s', '\0'},
-//    {'u','n','f','i','t', '\0'},
-//    {'s','t','o','l','e', '\0'},
-//    {'e','r','o','d','e', '\0'},
-//    {'d','o','t','e','d', '\0'},
+//    char final_solution[GRID_SIZE][GRID_SIZE] = {
+//    {'f','i','a','t','s'},
+//    {'u','n','f','i','t'},
+//    {'s','t','o','l','e'},
+//    {'e','r','o','d','e'},
+//    {'d','o','t','e','d'},
 //    };
 //}
