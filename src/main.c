@@ -54,7 +54,7 @@ int get_word_list(char words[WORD_COUNT][WORD_LENGTH]) {
     logger(DEBUG, __func__, "Loading wordle words...");
 
     // Open the file in read mode
-    file = fopen("wordle-words.txt", "r");
+    file = fopen("words.txt", "r");
     if (file == NULL) {
         logger(ERROR, __func__, "Could not open file");
         return 1;
