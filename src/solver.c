@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "logger.h"
 #include "solver.h"
 
-static long int m_iteration_count = 0; // The number of times the solve() function is called
+// TODO: find all possible solutions because there might be more than one
+// depending on the starting information
+
+static unsigned long m_iteration_count = 0; // The number of times the solve() function is called
 
 // Prints the current state of the solution[][] array
 static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]) {
@@ -50,8 +54,8 @@ int compare_arrays(char arr1[GRID_SIZE][GRID_SIZE], char arr2[GRID_SIZE][GRID_SI
 }
 
 // Function to check if a word is in the list of valid words
-int is_valid_word(char word[], char words[WORD_COUNT][WORD_LENGTH]) {
-    for (int i = 0; i < WORD_COUNT; i++) {
+static int is_valid_word(char word[], char words[MAX_WORD_COUNT][WORD_LENGTH], int word_count) {
+    for (int i = 0; i < word_count; i++) {
         if (strcmp(word, words[i]) == 0) {
             return 1; // Word is valid
         }
@@ -60,7 +64,8 @@ int is_valid_word(char word[], char words[WORD_COUNT][WORD_LENGTH]) {
 }
 
 // Function to check if all columns with complete words are valid words
-int validate_columns(char grid[GRID_SIZE][GRID_SIZE], char words[WORD_COUNT][WORD_LENGTH]) {
+static int validate_columns(char grid[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH],
+                            int word_count) {
     for (int col = 0; col < GRID_SIZE; col++) {
         char word[WORD_LENGTH] = {0}; // Buffer to store the word
         word[WORD_LENGTH - 1] = '\0';
@@ -75,7 +80,7 @@ int validate_columns(char grid[GRID_SIZE][GRID_SIZE], char words[WORD_COUNT][WOR
         }
 
         if (word_length == GRID_SIZE) { // Check only complete words
-            if (!is_valid_word(word, words)) {
+            if (!is_valid_word(word, words, word_count)) {
                 logger(DEBUG, __func__, "Invalid word '%s' in column %d", word, col + 1);
                 return 0; // Invalid word found
             }
@@ -98,7 +103,7 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
         }
 
         if (solution[row][col] != word[col]) {
-            logger(DEBUG, __func__, "'%s' does not fit in row %d", word, row + 1);
+            logger(DEBUG, __func__, "'%s' does not fit in row %d - known don't match", word, row + 1);
             return 0; // Characters don't match
         }
     }
@@ -110,7 +115,7 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
         }
 
         if (!strchr(word, unplaced[row][col])) {
-            logger(DEBUG, __func__, "'%s' does not fit in row %d", word, row + 1);
+            logger(DEBUG, __func__, "'%s' does not fit in row %d - unplaced don't match", word, row + 1);
             return 0; // Characters is not in the word
         }
     }
@@ -119,64 +124,24 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
     return 1; // Word fits in row
 }
 
-// Function to check if a word fits in a column
-int fits_in_col(char solution[GRID_SIZE][GRID_SIZE], char word[], int col) {
-    // For a word to fit in a column, a word must:
-    // 1. Have the known letters in the same place as the game board
-    // 2. If the word is placed in the row, all completed words are valid words
-    // There are no unplaced letters for a column
-
-    for (int row = 0; row < GRID_SIZE; row++) {
-        if (solution[row][col] == '.') {
-            continue; // No information about the character, continue
-        }
-
-        if (solution[row][col] != word[row]) {
-            logger(DEBUG, __func__, "'%s' does not fit in column %d", word, col + 1);
-            return 0; // Characters don't match
-        }
-    }
-
-    logger(DEBUG, __func__, "'%s' fits in column %d", word, col + 1);
-    return 1;
-}
-
 // Function to place a word in the grid
-void place_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row,
-                int col, int horizontal) {
-    if (horizontal) {
-        logger(DEBUG, __func__, "Placing '%s' in row %d", word, row + 1);
-        for (int i = 0; i < GRID_SIZE; i++) {
-            grid[row][i] = word[i];
-        }
-    } else {
-        logger(DEBUG, __func__, "Placing '%s' in column %d", word, col + 1);
-        for (int i = 0; i < GRID_SIZE; i++) {
-            grid[i][col] = word[i];
-        }
+void place_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row) {
+    logger(DEBUG, __func__, "Placing '%s' in row %d", word, row + 1);
+    for (int i = 0; i < GRID_SIZE; i++) {
+        grid[row][i] = word[i];
     }
 
     return;
 }
 
 // Function to remove a word in the grid
-void remove_word(char board[GRID_SIZE][GRID_SIZE], char solution[GRID_SIZE][GRID_SIZE],
-                 char word[], int row, int col, int horizontal) {
+void remove_word(char board[GRID_SIZE][GRID_SIZE], char solution[GRID_SIZE][GRID_SIZE], int row) {
     char placeholder = '.';
 
-    if (horizontal) {
-        logger(DEBUG, __func__, "Removing '%s' from row %d", word, row + 1);
-        for (int i = 0; i < GRID_SIZE; i++) {
-            if (board[row][i] == placeholder) {
-                solution[row][i] = placeholder;
-            }
-        }
-    } else {
-        logger(DEBUG, __func__, "Removing '%s' from column %d", word, col + 1);
-        for (int i = 0; i < GRID_SIZE; i++) {
-            if (board[row + i][col] == placeholder) {
-                solution[row + i][col] = placeholder;
-            }
+    logger(DEBUG, __func__, "Removing the word in row %d", row + 1);
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (board[row][i] == placeholder) {
+            solution[row][i] = placeholder;
         }
     }
 
@@ -184,7 +149,7 @@ void remove_word(char board[GRID_SIZE][GRID_SIZE], char solution[GRID_SIZE][GRID
 }
 
 // Function to check if a word is in the grid
-int is_in_grid(char grid[GRID_SIZE][GRID_SIZE], char word[]) {
+static int is_in_grid(char grid[GRID_SIZE][GRID_SIZE], char word[]) {
     int word_length = strlen(word);
 
     // Check horizontally
@@ -222,66 +187,83 @@ int is_in_grid(char grid[GRID_SIZE][GRID_SIZE], char word[]) {
     return 0; // Word not found
 }
 
-int solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE], 
-          char solution[GRID_SIZE][GRID_SIZE], char words[WORD_COUNT][WORD_LENGTH]) {
+static int solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE], 
+                 char solution[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH],
+                 int word_count, int row) {
     if (is_grid_full(solution)) {
         return 1; // Puzzle solved
     }
-    
-    for (int index = 0; index < WORD_COUNT; index++) {
-        m_iteration_count++;
-        if (m_iteration_count % 100000000 == 0) {
-            logger(INFO, __func__, "Processed %d iterations", m_iteration_count);
-            logger(INFO, __func__, "Current solution...");
-            print_current_solution(solution, unplaced);
-        }
 
+    for (int index = 0; index < word_count; index++) {
         if (is_in_grid(solution, words[index])) {
             // cannot repeat words
             continue;
         }
 
+        m_iteration_count++;
+        if (m_iteration_count % 1000000000 == 0) {
+            logger(INFO, __func__, "Processed %lu iterations", m_iteration_count);
+            logger(INFO, __func__, "Current solution...");
+            print_current_solution(solution, unplaced);
+        }
+
         logger(DEBUG, __func__, "Trying '%s'", words[index]);
 
-        for (int row = 0; row < GRID_SIZE; row++) {
-            if (fits_in_row(solution, unplaced, words[index], row)) {
-                // rename so I don't have extra arg
-                place_word(solution, words[index], row, 0, 1);
-                if (validate_columns(solution, words)) {
-                    print_current_solution(solution, unplaced);
-                    if (solve(board, unplaced, solution, words)) {
-                        return 1;
-                    }
+        if (fits_in_row(solution, unplaced, words[index], row)) {
+            place_word(solution, words[index], row);
+            if (validate_columns(solution, words, word_count)) {
+                //print_current_solution(solution, unplaced);
+                if (solve(board, unplaced, solution, words, word_count, row + 1)) {
+                    return 1;
                 }
-                remove_word(board, solution, words[index], row, 0, 1);
-                print_current_solution(solution, unplaced);
             }
+            remove_word(board, solution, row);
+            //print_current_solution(solution, unplaced);
         }
-        //for (int col = 0; col < GRID_SIZE; col++) {
-        //    if (fits_in_col(solution, words[index], col)) {
-        //        // rename so I don't have extra arg
-        //        place_word(solution, words[index], 0, col, 0);
-        //        print_current_solution(solution, unplaced);
-        //        if (solve(board, unplaced, solution, words)) {
-        //            return 1;
-        //        }
-        //        remove_word(board, solution, words[index], 0, col, 0);
-        //        print_current_solution(solution, unplaced);
-        //    }
-        //}
     }
 
     return 0; // No solution found
 }
 
+// Function to filter out words containing unused letters
+int filter_words(char words[MAX_WORD_COUNT][WORD_LENGTH], char valid_words[MAX_WORD_COUNT][WORD_LENGTH],
+                 char unused_letters[], int unused_length) {
+    int valid_word_count = 0;
+    int valid = 1;
+
+    for (int i = 0; i < MAX_WORD_COUNT; i++) {
+        valid = 1;
+        for (int u = 0; u < unused_length; u++) {
+            if (strchr(words[i], unused_letters[u])) {
+                valid = 0;
+                break;
+            }
+        }
+        if (valid) {
+            strcpy(valid_words[valid_word_count++], words[i]);
+        }
+    }
+
+    return valid_word_count; // Return the number of valid words
+}
+
 // Function to solve the squareword
 int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE],
-           char solution[GRID_SIZE][GRID_SIZE], char words[WORD_COUNT][WORD_LENGTH]) {
+           char unused[], int unused_length, char solution[GRID_SIZE][GRID_SIZE],
+           char words[MAX_WORD_COUNT][WORD_LENGTH]) {
     int err_code = 0;
+    clock_t start, end;
+    double cpu_time_used;
+    int hours, minutes, seconds;
+    char valid_words[MAX_WORD_COUNT][WORD_LENGTH];
+    int valid_word_count = 0;
 
-    logger(TRACE, __func__, "Enter");
     logger(INFO, __func__, "Starting solver");
-    
+
+    logger(INFO, __func__, "Number of starting words: %d", MAX_WORD_COUNT);
+    valid_word_count = filter_words(words, valid_words, unused, unused_length);
+    logger(INFO, __func__, "Number of valid words: %d", valid_word_count);
+
     // Copy beginning board state to solution
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
@@ -292,7 +274,18 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     logger(INFO, __func__, "Starting board...");
     print_current_solution(solution, unplaced);
 
-    err_code = solve(board, unplaced, solution, words);
+    start = clock();
+    err_code = solve(board, unplaced, solution, valid_words, valid_word_count, 0);
+    end = clock();
+
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    hours = (int) (cpu_time_used / 3600);
+    minutes = (int) ((cpu_time_used - (hours * 3600)) / 60);
+    seconds = (int) (cpu_time_used - (hours * 3600) - (minutes * 60));
+
+    logger(INFO, __func__, "Number of iterations: %lu", m_iteration_count);
+    logger(INFO, __func__, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
+
     if (err_code == 1) {
         logger(INFO, __func__, "Solution found");
         err_code = 0;
@@ -302,6 +295,5 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     }
 
     logger(INFO, __func__, "Finished solver");
-    logger(TRACE, __func__, "Exit");
     return err_code;
 }

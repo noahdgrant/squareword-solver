@@ -23,8 +23,6 @@ int parse_args(int argc, char* argv[]) {
         {0, 0, 0, 0}
     };
 
-    logger(TRACE, __func__, "Enter");
-
     while ((opt = getopt_long(argc, argv, "l:h", long_options, NULL)) != -1) {
         switch (opt) {
             case 'l':
@@ -41,16 +39,14 @@ int parse_args(int argc, char* argv[]) {
         }
     }
 
-    logger(TRACE, __func__, "Exit");
     return err_code;
 }
 
-int get_word_list(char words[WORD_COUNT][WORD_LENGTH]) {
+int get_word_list(char words[MAX_WORD_COUNT][WORD_LENGTH]) {
     FILE *file;
     int count = 0;
     char line[WORD_LENGTH + 1]; // +1 for \n
 
-    logger(TRACE, __func__, "Enter");
     logger(DEBUG, __func__, "Loading wordle words...");
 
     // Open the file in read mode
@@ -63,7 +59,6 @@ int get_word_list(char words[WORD_COUNT][WORD_LENGTH]) {
     // Read each line from the file
     while (fgets(line, sizeof(line), file)) {
         line[WORD_LENGTH - 1] = '\0'; // Remove newline character
-        logger(TRACE, __func__, "Line (%d): %s\n", count + 1, line);
         strncpy(words[count], line, WORD_LENGTH);
         count++;
     }
@@ -72,14 +67,12 @@ int get_word_list(char words[WORD_COUNT][WORD_LENGTH]) {
     fclose(file);
 
     logger(DEBUG, __func__, "Finished loading wordle words...");
-    logger(TRACE, __func__, "Exit");
     return 0;
 }
 
 int main(int argc, char* argv[]) {
     int err_code = 0;
-    char words[WORD_COUNT][WORD_LENGTH];
-
+    char words[MAX_WORD_COUNT][WORD_LENGTH];
     char board[GRID_SIZE][GRID_SIZE] = {
     {'.','.','.','.','.'},
     {'.','.','.','.','t'},
@@ -96,23 +89,29 @@ int main(int argc, char* argv[]) {
     {'e','t','.','.','.'},
     };
 
+    char unused[] = {'.'};
+
 //    // the game board (green)
 //    char board[GRID_SIZE][GRID_SIZE] = {
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
+//    {'.','.','.','n','.'},
+//    {'.','.','.','e','.'},
+//    {'a','.','.','.','.'},
+//    {'m','a','.','e','.'},
+//    {'.','.','.','.','t'},
 //    };
 //
 //    // the characters that go in the words but you don't know where (yellow)
 //    char unplaced[GRID_SIZE][GRID_SIZE] = {
+//    {'a','.','.','.','.'},
+//    {'e','.','.','.','.'},
+//    {'e','.','.','.','.'},
 //    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
+//    {'e','.','.','.','.'},
 //    };
+//
+//    // letters that can't be in the final solution (grey)
+//    char unused[] = {'u', 'o', 'd', 'h'};
+    int unused_length = sizeof(unused)/sizeof(unused[0]);
 
     // the final solution
     char solution[GRID_SIZE][GRID_SIZE] = {
@@ -128,14 +127,12 @@ int main(int argc, char* argv[]) {
         return err_code;
     }
 
-    // TODO: setup board and unplaced
-
     err_code = get_word_list(words);
     if (err_code != 0) {
         return err_code;
     }
 
-    err_code = solver(board, unplaced, solution, words);
+    err_code = solver(board, unplaced, unused, unused_length, solution, words);
     if (err_code != 0) {
         return err_code;
     }
@@ -167,6 +164,8 @@ int main(int argc, char* argv[]) {
 //    {'e','o','.','.','.'},
 //    {'e','t','.','.','.'},
 //    };
+//
+//    char unused[] = {};
 //
 //    char solution[GRID_SIZE][GRID_SIZE] = {
 //    {'.','.','.','.','.'},
