@@ -7,34 +7,6 @@
 #include "logger.h"
 #include "solver.h"
 
-/* Sample inputs and desired solutions
-    board = {
-    {'.','.','.','.','.'},
-    {'.','.','.','.','t'},
-    {'.','.','.','.','e'},
-    {'.','r','.','.','e'},
-    {'.','o','.','.','.'},
-    };
-
-    unplaced = {
-    {'a','i','s','t','.'},
-    {'i','u','n','.','.'},
-    {'s','o','t','.','.'},
-    {'e','o','.','.','.'},
-    {'e','t','.','.','.'},
-    };
-
-    unused[] = {};
-
-    final_solution = {
-    {'f','i','a','t','s'},
-    {'u','n','f','i','t'},
-    {'s','t','o','l','e'},
-    {'e','r','o','d','e'},
-    {'d','o','t','e','d'},
-    };
-*/
-
 void print_usage(const char *program_name) {
     fprintf(stderr, "Usage: %s [options]\n", program_name);
     fprintf(stderr, "Options:\n");
@@ -100,29 +72,28 @@ int get_word_list(char words[MAX_WORD_COUNT][WORD_LENGTH]) {
 
 int main(int argc, char* argv[]) {
     int err_code = 0;
-    int solution_count = 0;
     char words[MAX_WORD_COUNT][WORD_LENGTH];
 
     // the game board (green)
     char board[GRID_SIZE][GRID_SIZE] = {
-    {'.','.','.','n','.'},
-    {'.','.','.','e','.'},
-    {'a','.','.','.','.'},
-    {'m','a','.','e','.'},
-    {'.','.','.','.','t'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','u','.','e'},
+    {'a','.','.','.','e'},
+    {'.','r','.','.','.'},
     };
 
     // the characters that go in the words but you don't know where (yellow)
     char unplaced[GRID_SIZE][GRID_SIZE] = {
-    {'a','.','.','.','.'},
+    {'a','s','m','.','.'},
+    {'a','e','.','.','.'},
     {'e','.','.','.','.'},
-    {'e','.','.','.','.'},
-    {'.','.','.','.','.'},
-    {'e','.','.','.','.'},
+    {'e','i','r','.','.'},
+    {'a','e','.','.','.'},
     };
 
     // letters that can't be in the final solution (grey)
-    char unused[] = {'u', 'o', 'd', 'h'};
+    char unused[] = {'t', 'o', 'n'};
     int unused_length = sizeof(unused)/sizeof(unused[0]);
 
     err_code = parse_args(argc, argv);

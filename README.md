@@ -39,3 +39,67 @@ Clean old build files with...
 ```bash
 $ make clean
 ```
+
+## Example Boards with Intended Solutions
+
+### Solution 1
+
+```c
+char board[GRID_SIZE][GRID_SIZE] = {
+{'.','.','.','.','.'},
+{'.','.','.','.','t'},
+{'.','.','.','.','e'},
+{'.','r','.','.','e'},
+{'.','o','.','.','.'},
+};
+
+char unplaced[GRID_SIZE][GRID_SIZE] = {
+{'a','i','s','t','.'},
+{'i','u','n','.','.'},
+{'s','o','t','.','.'},
+{'e','o','.','.','.'},
+{'e','t','.','.','.'},
+};
+
+char unused[] = {'.'};
+
+// This is the intended answer
+final_solution = {
+{'f','i','a','t','s'},
+{'u','n','f','i','t'},
+{'s','t','o','l','e'},
+{'e','r','o','d','e'},
+{'d','o','t','e','d'},
+};
+```
+
+### Solution 2
+
+```c
+char board[GRID_SIZE][GRID_SIZE] = {
+{'.','.','.','.','.'},
+{'.','.','.','.','.'},
+{'.','.','u','.','e'},
+{'a','.','.','.','e'},
+{'.','r','.','.','.'},
+};
+
+char unplaced[GRID_SIZE][GRID_SIZE] = {
+{'a','s','m','.','.'},
+{'a','e','.','.','.'},
+{'e','.','.','.','.'},
+{'e','i','r','.','.'},
+{'a','e','.','.','.'},
+};
+
+char unused[] = {'t', 'o', 'n'};
+
+// This is the intended answer
+final_solution = {
+{'s','p','a','m','s'},
+{'h','a','z','e','l'},
+{'e','l','u','d','e'},
+{'a','e','r','i','e'},
+{'f','r','e','a','k'},
+};
+```
