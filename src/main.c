@@ -7,6 +7,34 @@
 #include "logger.h"
 #include "solver.h"
 
+/* Sample inputs and desired solutions
+    board = {
+    {'.','.','.','.','.'},
+    {'.','.','.','.','t'},
+    {'.','.','.','.','e'},
+    {'.','r','.','.','e'},
+    {'.','o','.','.','.'},
+    };
+
+    unplaced = {
+    {'a','i','s','t','.'},
+    {'i','u','n','.','.'},
+    {'s','o','t','.','.'},
+    {'e','o','.','.','.'},
+    {'e','t','.','.','.'},
+    };
+
+    unused[] = {};
+
+    final_solution = {
+    {'f','i','a','t','s'},
+    {'u','n','f','i','t'},
+    {'s','t','o','l','e'},
+    {'e','r','o','d','e'},
+    {'d','o','t','e','d'},
+    };
+*/
+
 void print_usage(const char *program_name) {
     fprintf(stderr, "Usage: %s [options]\n", program_name);
     fprintf(stderr, "Options:\n");
@@ -72,55 +100,30 @@ int get_word_list(char words[MAX_WORD_COUNT][WORD_LENGTH]) {
 
 int main(int argc, char* argv[]) {
     int err_code = 0;
+    int solution_count = 0;
     char words[MAX_WORD_COUNT][WORD_LENGTH];
+
+    // the game board (green)
     char board[GRID_SIZE][GRID_SIZE] = {
-    {'.','.','.','.','.'},
+    {'.','.','.','n','.'},
+    {'.','.','.','e','.'},
+    {'a','.','.','.','.'},
+    {'m','a','.','e','.'},
     {'.','.','.','.','t'},
-    {'.','.','.','.','e'},
-    {'.','r','.','.','e'},
-    {'.','o','.','.','.'},
     };
 
+    // the characters that go in the words but you don't know where (yellow)
     char unplaced[GRID_SIZE][GRID_SIZE] = {
-    {'a','i','s','t','.'},
-    {'i','u','n','.','.'},
-    {'s','o','t','.','.'},
-    {'e','o','.','.','.'},
-    {'e','t','.','.','.'},
+    {'a','.','.','.','.'},
+    {'e','.','.','.','.'},
+    {'e','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'e','.','.','.','.'},
     };
 
-    char unused[] = {'.'};
-
-//    // the game board (green)
-//    char board[GRID_SIZE][GRID_SIZE] = {
-//    {'.','.','.','n','.'},
-//    {'.','.','.','e','.'},
-//    {'a','.','.','.','.'},
-//    {'m','a','.','e','.'},
-//    {'.','.','.','.','t'},
-//    };
-//
-//    // the characters that go in the words but you don't know where (yellow)
-//    char unplaced[GRID_SIZE][GRID_SIZE] = {
-//    {'a','.','.','.','.'},
-//    {'e','.','.','.','.'},
-//    {'e','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'e','.','.','.','.'},
-//    };
-//
-//    // letters that can't be in the final solution (grey)
-//    char unused[] = {'u', 'o', 'd', 'h'};
+    // letters that can't be in the final solution (grey)
+    char unused[] = {'u', 'o', 'd', 'h'};
     int unused_length = sizeof(unused)/sizeof(unused[0]);
-
-    // the final solution
-    char solution[GRID_SIZE][GRID_SIZE] = {
-    {'.','.','.','.','.'},
-    {'.','.','.','.','.'},
-    {'.','.','.','.','.'},
-    {'.','.','.','.','.'},
-    {'.','.','.','.','.'},
-    };
 
     err_code = parse_args(argc, argv);
     if (err_code != 0) {
@@ -132,54 +135,10 @@ int main(int argc, char* argv[]) {
         return err_code;
     }
 
-    err_code = solver(board, unplaced, unused, unused_length, solution, words);
+    err_code = solver(board, unplaced, unused, unused_length, words);
     if (err_code != 0) {
         return err_code;
     }
 
-    logger(INFO, __func__, "Final solution...");
-    for (int row = 0; row < GRID_SIZE; row++) {
-        for (int col = 0; col < GRID_SIZE; col++) {
-            printf("%c", solution[row][col]);
-        }
-        printf("\n");
-    }
-
     return 0;
 }
-
-//void test() {
-//    char board[GRID_SIZE][GRID_SIZE] = {
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','t'},
-//    {'.','.','.','.','e'},
-//    {'.','r','.','.','e'},
-//    {'.','o','.','.','.'},
-//    };
-//
-//    char unplaced[GRID_SIZE][GRID_SIZE] = {
-//    {'a','i','s','t','.'},
-//    {'i','u','n','.','.'},
-//    {'s','o','t','.','.'},
-//    {'e','o','.','.','.'},
-//    {'e','t','.','.','.'},
-//    };
-//
-//    char unused[] = {};
-//
-//    char solution[GRID_SIZE][GRID_SIZE] = {
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    {'.','.','.','.','.'},
-//    };
-//
-//    char final_solution[GRID_SIZE][GRID_SIZE] = {
-//    {'f','i','a','t','s'},
-//    {'u','n','f','i','t'},
-//    {'s','t','o','l','e'},
-//    {'e','r','o','d','e'},
-//    {'d','o','t','e','d'},
-//    };
-//}

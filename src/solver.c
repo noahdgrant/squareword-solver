@@ -5,15 +5,13 @@
 #include "logger.h"
 #include "solver.h"
 
-// TODO: find all possible solutions because there might be more than one
-// depending on the starting information
-
-static unsigned long m_iteration_count = 0; // The number of times the solve() function is called
+static unsigned long m_iteration_count = 0;
+int m_solution_count = 0;
+char m_solutions[MAX_SOLUTION_COUNT][GRID_SIZE][GRID_SIZE];
 
 // Prints the current state of the solution[][] array
 static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]) {
     logger(DEBUG, __func__, "Current solution...");
-    // TODO: figure out how to only print this for DEBUG log level
     for (int row = 0; row < GRID_SIZE; row++) {
         for (int col = 0; col < GRID_SIZE; col++) {
             fprintf(stderr, "%c", solution[row][col]);
@@ -30,6 +28,7 @@ static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unp
 
 }
 
+// Checks if the grid has any empty slots
 static int is_grid_full(char grid[GRID_SIZE][GRID_SIZE]) {
     for (int row = 0; row < GRID_SIZE; row++) {
         for (int col = 0; col < GRID_SIZE; col++) {
@@ -39,18 +38,6 @@ static int is_grid_full(char grid[GRID_SIZE][GRID_SIZE]) {
         }
     }
     return 1; // Grid full
-}
-
-// Function to compare two 2D arrays
-int compare_arrays(char arr1[GRID_SIZE][GRID_SIZE], char arr2[GRID_SIZE][GRID_SIZE]) {
-    for (int i = 0; i < GRID_SIZE; i++) {
-        for (int j = 0; j < GRID_SIZE; j++) {
-            if (arr1[i][j] != arr2[i][j]) {
-                return 0; // Arrays are not equal
-            }
-        }
-    }
-    return 1; // Arrays are equal
 }
 
 // Function to check if a word is in the list of valid words
@@ -87,6 +74,80 @@ static int validate_columns(char grid[GRID_SIZE][GRID_SIZE], char words[MAX_WORD
         }
     }
     return 1; // All complete words are valid
+}
+
+// Function to check if a word is in the grid
+static int is_in_grid(char grid[GRID_SIZE][GRID_SIZE], char word[]) {
+    int word_length = strlen(word);
+
+    // Check horizontally
+    for (int row = 0; row < GRID_SIZE; row++) {
+        for (int col = 0; col <= GRID_SIZE - word_length; col++) {
+            int match = 1;
+            for (int k = 0; k < word_length; k++) {
+                if (grid[row][col + k] != word[k]) {
+                    match = 0;
+                    break;
+                }
+            }
+            if (match) {
+                return 1; // Word found horizontally
+            }
+        }
+    }
+
+    // Check vertically
+    for (int col = 0; col < GRID_SIZE; col++) {
+        for (int row = 0; row <= GRID_SIZE - word_length; row++) {
+            int match = 1;
+            for (int k = 0; k < word_length; k++) {
+                if (grid[row + k][col] != word[k]) {
+                    match = 0;
+                    break;
+                }
+            }
+            if (match) {
+                return 1; // Word found vertically
+            }
+        }
+    }
+
+    return 0; // Word not found
+}
+
+// Function to filter out words containing unused letters
+static int filter_words(char words[MAX_WORD_COUNT][WORD_LENGTH], char valid_words[MAX_WORD_COUNT][WORD_LENGTH],
+                 char unused_letters[], int unused_length) {
+    int valid_word_count = 0;
+    int valid = 1;
+
+    for (int i = 0; i < MAX_WORD_COUNT; i++) {
+        valid = 1;
+        for (int u = 0; u < unused_length; u++) {
+            if (strchr(words[i], unused_letters[u])) {
+                valid = 0;
+                break;
+            }
+        }
+        if (valid) {
+            strcpy(valid_words[valid_word_count++], words[i]);
+        }
+    }
+
+    return valid_word_count; // Return the number of valid words
+}
+
+
+// Function to compare two 2D arrays
+int compare_arrays(char arr1[GRID_SIZE][GRID_SIZE], char arr2[GRID_SIZE][GRID_SIZE]) {
+    for (int i = 0; i < GRID_SIZE; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            if (arr1[i][j] != arr2[i][j]) {
+                return 0; // Arrays are not equal
+            }
+        }
+    }
+    return 1; // Arrays are equal
 }
 
 // Function to check if a word fits in a row
@@ -148,55 +209,25 @@ void remove_word(char board[GRID_SIZE][GRID_SIZE], char solution[GRID_SIZE][GRID
     return;
 }
 
-// Function to check if a word is in the grid
-static int is_in_grid(char grid[GRID_SIZE][GRID_SIZE], char word[]) {
-    int word_length = strlen(word);
-
-    // Check horizontally
-    for (int row = 0; row < GRID_SIZE; row++) {
-        for (int col = 0; col <= GRID_SIZE - word_length; col++) {
-            int match = 1;
-            for (int k = 0; k < word_length; k++) {
-                if (grid[row][col + k] != word[k]) {
-                    match = 0;
-                    break;
-                }
-            }
-            if (match) {
-                return 1; // Word found horizontally
-            }
-        }
-    }
-
-    // Check vertically
-    for (int col = 0; col < GRID_SIZE; col++) {
-        for (int row = 0; row <= GRID_SIZE - word_length; row++) {
-            int match = 1;
-            for (int k = 0; k < word_length; k++) {
-                if (grid[row + k][col] != word[k]) {
-                    match = 0;
-                    break;
-                }
-            }
-            if (match) {
-                return 1; // Word found vertically
-            }
-        }
-    }
-
-    return 0; // Word not found
-}
-
-static int solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE], 
+// Function that finds all possible squareword solutions given a starting position
+static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE], 
                  char solution[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH],
                  int word_count, int row) {
     if (is_grid_full(solution)) {
-        return 1; // Puzzle solved
+        // Solution found
+        // Append to the solutions array and keep looking
+        if (m_solution_count < MAX_SOLUTION_COUNT) {
+            memcpy(m_solutions[m_solution_count], solution, sizeof(m_solutions[0]));
+            m_solution_count++;
+        } else {
+            logger(WARNING, __func__, "Found more than %d possible solutions", MAX_SOLUTION_COUNT);
+        }
+        return;
     }
 
     for (int index = 0; index < word_count; index++) {
         if (is_in_grid(solution, words[index])) {
-            // cannot repeat words
+            // Cannot repeat words
             continue;
         }
 
@@ -212,51 +243,37 @@ static int solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID
         if (fits_in_row(solution, unplaced, words[index], row)) {
             place_word(solution, words[index], row);
             if (validate_columns(solution, words, word_count)) {
-                //print_current_solution(solution, unplaced);
-                if (solve(board, unplaced, solution, words, word_count, row + 1)) {
-                    return 1;
+                if (logger_get_level() == DEBUG) {
+                    print_current_solution(solution, unplaced);
                 }
+                solve(board, unplaced, solution, words, word_count, row + 1);
             }
             remove_word(board, solution, row);
-            //print_current_solution(solution, unplaced);
-        }
-    }
-
-    return 0; // No solution found
-}
-
-// Function to filter out words containing unused letters
-int filter_words(char words[MAX_WORD_COUNT][WORD_LENGTH], char valid_words[MAX_WORD_COUNT][WORD_LENGTH],
-                 char unused_letters[], int unused_length) {
-    int valid_word_count = 0;
-    int valid = 1;
-
-    for (int i = 0; i < MAX_WORD_COUNT; i++) {
-        valid = 1;
-        for (int u = 0; u < unused_length; u++) {
-            if (strchr(words[i], unused_letters[u])) {
-                valid = 0;
-                break;
+            if (logger_get_level() == DEBUG) {
+                print_current_solution(solution, unplaced);
             }
         }
-        if (valid) {
-            strcpy(valid_words[valid_word_count++], words[i]);
-        }
     }
 
-    return valid_word_count; // Return the number of valid words
+    return;
 }
 
 // Function to solve the squareword
 int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE],
-           char unused[], int unused_length, char solution[GRID_SIZE][GRID_SIZE],
-           char words[MAX_WORD_COUNT][WORD_LENGTH]) {
+           char unused[], int unused_length, char words[MAX_WORD_COUNT][WORD_LENGTH]) {
     int err_code = 0;
     clock_t start, end;
     double cpu_time_used;
     int hours, minutes, seconds;
     char valid_words[MAX_WORD_COUNT][WORD_LENGTH];
     int valid_word_count = 0;
+    char solution[GRID_SIZE][GRID_SIZE] = {
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    };
 
     logger(INFO, __func__, "Starting solver");
 
@@ -275,7 +292,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     print_current_solution(solution, unplaced);
 
     start = clock();
-    err_code = solve(board, unplaced, solution, valid_words, valid_word_count, 0);
+    solve(board, unplaced, solution, valid_words, valid_word_count, 0);
     end = clock();
 
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -286,12 +303,21 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     logger(INFO, __func__, "Number of iterations: %lu", m_iteration_count);
     logger(INFO, __func__, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
 
-    if (err_code == 1) {
-        logger(INFO, __func__, "Solution found");
-        err_code = 0;
-    } else {
-        logger(ERROR, __func__, "Solution not found");
+    if (m_solution_count == 0) {
+        logger(ERROR, __func__, "Did not find any solutions");
         err_code = 1;
+    } else {
+        logger(INFO, __func__, "Found %d solutions", m_solution_count);
+    }
+
+    for (int i = 0; i < m_solution_count; i++) {
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                printf("%c", m_solutions[i][row][col]);
+            }
+            printf("\n");
+        }
+            printf("\n");
     }
 
     logger(INFO, __func__, "Finished solver");

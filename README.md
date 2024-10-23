@@ -1,12 +1,11 @@
 # Squareword Solver
 
-This project is a solver for the [Squareword](https://squareword.org/) game.
+This project is a solver for the [Squareword](https://squareword.org/) game. The
+solver uses a backtracking algorithm to find all possible solutions given a
+starting point.
 
 ## Todo
 
-- [ ] Fix printing grid issue (figure out how to make it DEBUG)
-- [ ] Fix tests
-- [ ] Organize functions
 - [ ] Parallelize
 - [ ] Optimize
 

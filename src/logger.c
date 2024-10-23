@@ -58,6 +58,10 @@ LogLevel logger_level_from_string(const char* level_str) {
     return level;
 }
 
+LogLevel logger_get_level() {
+    return m_logger_level;
+}
+
 void logger_set_level(LogLevel level) {
     m_logger_level = level;
     return;
