@@ -219,6 +219,8 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
         if (m_solution_count < MAX_SOLUTION_COUNT) {
             memcpy(m_solutions[m_solution_count], solution, sizeof(m_solutions[0]));
             m_solution_count++;
+            logger(INFO, __func__, "Solution found (%d)...", m_solution_count);
+            print_current_solution(solution, unplaced);
         } else {
             logger(WARNING, __func__, "Found more than %d possible solutions", MAX_SOLUTION_COUNT);
         }
@@ -232,7 +234,7 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
         }
 
         m_iteration_count++;
-        if (m_iteration_count % 1000000000 == 0) {
+        if (m_iteration_count % 10000000000 == 0) {
             logger(INFO, __func__, "Processed %lu iterations", m_iteration_count);
             logger(INFO, __func__, "Current solution...");
             print_current_solution(solution, unplaced);
