@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,11 +73,15 @@ void logger(LogLevel level, const char* function_name, const char *message, ...)
         return;
     }
 
+    setvbuf(stderr, NULL, _IOLBF, 0);
+
     time_t now;
     time(&now);
     char time_str[20];
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
     const char *level_str = logger_level_to_string(level);
+
+    flockfile(stderr);
 
     fprintf(stderr, "%s | %s | %s | ", time_str, level_str, function_name);
 
@@ -86,5 +91,9 @@ void logger(LogLevel level, const char* function_name, const char *message, ...)
     va_end(args);
 
     fprintf(stderr, "\n");
+
+    fflush(stderr);
+    funlockfile(stderr);
+
     return;
 }

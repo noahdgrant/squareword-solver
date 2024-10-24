@@ -42,7 +42,7 @@ $ make clean
 
 ## Example Boards with Intended Solutions
 
-### Solution 1
+### Example 1
 
 ```c
 char board[GRID_SIZE][GRID_SIZE] = {
@@ -73,7 +73,7 @@ final_solution = {
 };
 ```
 
-### Solution 2
+### Example 2
 
 ```c
 char board[GRID_SIZE][GRID_SIZE] = {

@@ -1,13 +1,25 @@
+#include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "logger.h"
 #include "solver.h"
 
-static unsigned long m_iteration_count = 0;
-int m_solution_count = 0;
-char m_solutions[MAX_SOLUTION_COUNT][GRID_SIZE][GRID_SIZE];
+typedef struct {
+    int solution_count;
+    char solutions[MAX_SOLUTION_COUNT][GRID_SIZE][GRID_SIZE];
+    unsigned long iterations;
+    pthread_mutex_t mutex;
+} shared_data_t;
+shared_data_t* m_shared_data;
+
+unsigned long m_iterations = 0;
 
 // Prints the current state of the solution[][] array
 static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]) {
@@ -211,36 +223,34 @@ void remove_word(char board[GRID_SIZE][GRID_SIZE], char solution[GRID_SIZE][GRID
 
 // Function that finds all possible squareword solutions given a starting position
 static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE], 
-                 char solution[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH],
-                 int word_count, int row) {
+                  char solution[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH],
+                  int word_count, int start_index, int end_index, int row) {
     if (is_grid_full(solution)) {
         // Solution found
         // Append to the solutions array and keep looking
-        if (m_solution_count < MAX_SOLUTION_COUNT) {
-            memcpy(m_solutions[m_solution_count], solution, sizeof(m_solutions[0]));
-            m_solution_count++;
-            logger(INFO, __func__, "Solution found (%d)...", m_solution_count);
+        pthread_mutex_lock(&m_shared_data->mutex);
+        if (m_shared_data->solution_count < MAX_SOLUTION_COUNT) {
+            memcpy(m_shared_data->solutions[m_shared_data->solution_count],
+                   solution, sizeof(m_shared_data->solutions[0]));
+            m_shared_data->solution_count++;
+            logger(INFO, __func__, "[%d] Solution found (%d)...", getpid(),
+                   m_shared_data->solution_count);
             print_current_solution(solution, unplaced);
         } else {
-            logger(WARNING, __func__, "Found more than %d possible solutions", MAX_SOLUTION_COUNT);
+            logger(WARNING, __func__, "[%d] Found more than %d possible solutions",
+                   getpid(), MAX_SOLUTION_COUNT);
         }
+        pthread_mutex_unlock(&m_shared_data->mutex);
         return;
     }
 
-    for (int index = 0; index < word_count; index++) {
+    for (int index = start_index; index < end_index; index++) {
         if (is_in_grid(solution, words[index])) {
             // Cannot repeat words
             continue;
         }
 
-        m_iteration_count++;
-        if (m_iteration_count % 10000000000 == 0) {
-            logger(INFO, __func__, "Processed %lu iterations", m_iteration_count);
-            logger(INFO, __func__, "Current solution...");
-            print_current_solution(solution, unplaced);
-        }
-
-        logger(DEBUG, __func__, "Trying '%s'", words[index]);
+        m_iterations++;
 
         if (fits_in_row(solution, unplaced, words[index], row)) {
             place_word(solution, words[index], row);
@@ -248,7 +258,8 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
                 if (logger_get_level() == DEBUG) {
                     print_current_solution(solution, unplaced);
                 }
-                solve(board, unplaced, solution, words, word_count, row + 1);
+                // For all rows after the first row, check all words
+                solve(board, unplaced, solution, words, word_count, 0, word_count, row + 1);
             }
             remove_word(board, solution, row);
             if (logger_get_level() == DEBUG) {
@@ -264,63 +275,118 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
 int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE],
            char unused[], int unused_length, char words[MAX_WORD_COUNT][WORD_LENGTH]) {
     int err_code = 0;
-    clock_t start, end;
-    double cpu_time_used;
+    struct timeval start, end;
     int hours, minutes, seconds;
+    double elapsed_time;
+    pid_t pids[NUM_PROCESSES];
+    int pid_start = 0;
+    int pid_end = 0;
     char valid_words[MAX_WORD_COUNT][WORD_LENGTH];
     int valid_word_count = 0;
-    char solution[GRID_SIZE][GRID_SIZE] = {
-    {'.','.','.','.','.'},
-    {'.','.','.','.','.'},
-    {'.','.','.','.','.'},
-    {'.','.','.','.','.'},
-    {'.','.','.','.','.'},
-    };
+    int words_per_group = 0;
+    char solution[GRID_SIZE][GRID_SIZE];
 
     logger(INFO, __func__, "Starting solver");
 
     logger(INFO, __func__, "Number of starting words: %d", MAX_WORD_COUNT);
     valid_word_count = filter_words(words, valid_words, unused, unused_length);
     logger(INFO, __func__, "Number of valid words: %d", valid_word_count);
+    words_per_group = valid_word_count / NUM_PROCESSES;
 
     // Copy beginning board state to solution
-    for (int i = 0; i < GRID_SIZE; i++) {
-        for (int j = 0; j < GRID_SIZE; j++) {
-            solution[i][j] = board[i][j];
-        }
-    }
+    memcpy(solution, board, GRID_SIZE * GRID_SIZE * sizeof(char));
 
     logger(INFO, __func__, "Starting board...");
     print_current_solution(solution, unplaced);
 
-    start = clock();
-    solve(board, unplaced, solution, valid_words, valid_word_count, 0);
-    end = clock();
+    // Setup shared memory
+    m_shared_data = mmap(NULL, sizeof(shared_data_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (m_shared_data == MAP_FAILED) {
+        logger(ERROR, __func__, "Failed to setup shared memory");
+        err_code = 1;
+        return err_code;
+    }
 
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    hours = (int) (cpu_time_used / 3600);
-    minutes = (int) ((cpu_time_used - (hours * 3600)) / 60);
-    seconds = (int) (cpu_time_used - (hours * 3600) - (minutes * 60));
+    m_shared_data->solution_count = 0;
+    m_shared_data->iterations = 0;
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutexattr_init(&mutex_attr);
+    pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
+    if (pthread_mutex_init(&m_shared_data->mutex, &mutex_attr) != 0) {
+        logger(ERROR, __func__, "Failed to initialize the mutex"); 
+        err_code = 1;
+        return err_code; 
+    }
 
-    logger(INFO, __func__, "Number of iterations: %lu", m_iteration_count);
+    gettimeofday(&start, NULL);
+    // Split up word list for each process
+    for (int i = 0; i < NUM_PROCESSES; i++) {
+        pid_start = i * words_per_group;
+        if (i == NUM_PROCESSES - 1) {
+            pid_end = valid_word_count - 1;
+        } else {
+            pid_end = pid_start + words_per_group;
+        }
+
+        pids[i] = fork();
+        if (pids[i] < 0) {
+            logger(ERROR, __func__, "Fork failed");
+            err_code = 1;
+            return err_code;
+        } else if (pids[i] == 0) {
+            // Child process
+            // Each child process will try a different section of the word list
+            // for the first row
+            logger(INFO, __func__, "[%d] Checking words from '%s' to '%s' for row 1",
+                   getpid(), valid_words[pid_start], valid_words[pid_end]);
+
+            solve(board, unplaced, solution, valid_words, valid_word_count, pid_start, pid_end, 0);
+            pthread_mutex_lock(&m_shared_data->mutex);
+            m_shared_data->iterations += m_iterations;
+            pthread_mutex_unlock(&m_shared_data->mutex);
+
+            logger(INFO, __func__, "[%d] Finished checking words (%ul iterations)",
+                   getpid(), m_iterations);
+            exit(0);
+        } else {
+            // Parent process
+        }
+    }
+
+    // Wait for all child processes to finish
+    for (int i = 0; i < NUM_PROCESSES; i++) {
+        waitpid(pids[i], NULL, 0);
+    }
+
+    gettimeofday(&end, NULL);
+
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    hours = (int) (elapsed_time / 3600);
+    minutes = (int) ((elapsed_time - (hours * 3600)) / 60);
+    seconds = (int) (elapsed_time - (hours * 3600) - (minutes * 60));
     logger(INFO, __func__, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
+    logger(INFO, __func__, "Total number of iterations: %lu", m_shared_data->iterations);
 
-    if (m_solution_count == 0) {
+    if (m_shared_data->solution_count == 0) {
         logger(ERROR, __func__, "Did not find any solutions");
         err_code = 1;
     } else {
-        logger(INFO, __func__, "Found %d solutions", m_solution_count);
+        logger(INFO, __func__, "Found %d solutions", m_shared_data->solution_count);
     }
 
-    for (int i = 0; i < m_solution_count; i++) {
+    for (int i = 0; i < m_shared_data->solution_count; i++) {
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
-                printf("%c", m_solutions[i][row][col]);
+                printf("%c", m_shared_data->solutions[i][row][col]);
             }
             printf("\n");
         }
             printf("\n");
     }
+
+    // Clean up
+    pthread_mutex_destroy(&m_shared_data->mutex); 
+    munmap(m_shared_data, sizeof(shared_data_t));
 
     logger(INFO, __func__, "Finished solver");
     return err_code;

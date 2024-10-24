@@ -1,6 +1,6 @@
 # Variable declaration
 CC=gcc
-CFLAGS=-g -Wall
+CFLAGS=-g -Wall -lpthread
 SRC=src
 OBJ=obj
 BIN=bin
@@ -13,13 +13,7 @@ TEST_OBJS=$(patsubst $(TESTS)/%.c, $(OBJ)/%.o, $(TEST_SRCS))
 TARGET=$(BIN)/main
 TEST_TARGET=$(BIN)/test_runner
 
-# Debug build
 all: $(TARGET)
-
-# Release build
-release: CFLAGS=-Wall -O2 -DNDEBUG
-release: clean
-release: $(TARGET)
 
 # Create binary files and object files
 $(TARGET): $(OBJS)
