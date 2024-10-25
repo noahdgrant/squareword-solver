@@ -78,22 +78,22 @@ int main(int argc, char* argv[]) {
     char board[GRID_SIZE][GRID_SIZE] = {
     {'.','.','.','.','.'},
     {'.','.','.','.','.'},
-    {'.','.','u','.','e'},
-    {'a','.','.','.','e'},
-    {'.','r','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
     };
 
     // the characters that go in the words but you don't know where (yellow)
     char unplaced[GRID_SIZE][GRID_SIZE] = {
-    {'a','s','m','.','.'},
-    {'a','e','.','.','.'},
-    {'e','.','.','.','.'},
-    {'e','i','r','.','.'},
-    {'a','e','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
+    {'.','.','.','.','.'},
     };
 
     // letters that can't be in the final solution (grey)
-    char unused[] = {'t', 'o', 'n'};
+    char unused[] = {'.'};
     int unused_length = sizeof(unused)/sizeof(unused[0]);
 
     err_code = parse_args(argc, argv);

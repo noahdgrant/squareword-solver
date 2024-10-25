@@ -1,11 +1,11 @@
 #ifndef SOLVER_H
 #define SOLVER_H
 
-#define GRID_SIZE 5
-#define WORD_LENGTH 6 // +1 for null termincator
-#define MAX_WORD_COUNT 12036 // number of words in words.txt
-#define MAX_SOLUTION_COUNT 100
-#define NUM_PROCESSES 8 // number of processes to create for parallelization
+#define GRID_SIZE 5             // squareword grid size
+#define WORD_LENGTH 6           // +1 for null terminator
+#define MAX_WORD_COUNT 12036    // number of words in words.txt
+#define MAX_SOLUTION_COUNT 100  // max number of solutions that will be saved
+#define NUM_PROCESSES 8         // number of processes to create for parallelization
 
 int compare_arrays(char arr1[GRID_SIZE][GRID_SIZE], char arr2[GRID_SIZE][GRID_SIZE]);
 void print_grid(char grid[GRID_SIZE][GRID_SIZE]);
