@@ -7,19 +7,13 @@
 
 #define BUFFER_SIZE 1024 // number of characters to read from the file
 
-int json_parse(const char *filename, char game_board[GRID_SIZE][GRID_SIZE],
-                char unplaced_letters[GRID_SIZE][GRID_SIZE],
-                char unused_letters[NUM_LETTERS], int* unused_count) {
+int json_parse(char game_board[GRID_SIZE][GRID_SIZE],
+               char unplaced_letters[GRID_SIZE][GRID_SIZE],
+               char unused_letters[NUM_LETTERS], int* unused_count) {
 
-    const char *ext = strrchr(filename, '.');
-    if (!ext || strcmp(ext, ".json") != 0) {
-        logger(ERROR, __func__, "File must end with .json - got %s", filename);
-        return 1;
-    }
-
-    FILE *file = fopen(filename, "r");
+    FILE *file = fopen("input.json", "r");
     if (!file) {
-        logger(ERROR, __func__, "Failed to open %s", filename);
+        logger(ERROR, __func__, "Failed to open input.json");
         return 1;
     }
 
