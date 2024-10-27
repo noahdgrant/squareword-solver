@@ -131,10 +131,7 @@ unfit
 stole
 erode
 doted
-```
-and...
 
-```
 fiats
 unfit
 stole
@@ -167,3 +164,23 @@ The `input.json` should look like this...
 ```
 
 The possible solutions found are...
+
+```
+shams
+hazel
+elude
+aerie
+freak
+
+slams
+hazel
+exude
+aerie
+freak
+
+spams
+hazel
+elude
+aerie
+freak
+```
