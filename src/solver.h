@@ -6,6 +6,7 @@
 #define MAX_WORD_COUNT 12036    // number of words in words.txt
 #define MAX_SOLUTION_COUNT 100  // max number of solutions that will be saved
 #define NUM_PROCESSES 8         // number of processes to create for parallelization
+#define NUM_LETTERS 26          // number of letters in the alphabet
 
 int compare_arrays(char arr1[GRID_SIZE][GRID_SIZE], char arr2[GRID_SIZE][GRID_SIZE]);
 void print_grid(char grid[GRID_SIZE][GRID_SIZE]);

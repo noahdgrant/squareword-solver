@@ -14,20 +14,43 @@ game is based on Yet Another Word List (YAWL) by Mendel Leo Cooper. The
 
 ### System
 
-Make sure the following is installed so you can build the binary.
+Run the following commands to setup your system and create the necessary files...
 
 ```bash
-$ sudo apt install build-essential
+$ chmod +x setup.sh
+$ ./setup.sh
 ```
 
-### main.c
+### input.json
 
-To setup the solver open `src/main.c`. A blank space is represented by a `'.'`.
-In `board[][]`, place the **green** letters as they appear on the game board. In
-`unplaced[][]`, place the **yellow** letters for each column (the order does not
-matter). In `unused[]`, place any **gray** letters (if there are no gray letters,
-leave it empty by putting a `'.'`). Once this is done, you can build and run the
-solver.
+To setup the solver open `input.json` (which was created by the `setup.sh` script).
+A blank space is represented by a `'.'`. In `game_board`, place the **green**
+letters as they appear on the game board. In `unplaced_letters`, place the
+**yellow** letters for each row (the order does not matter). In `unused_letters`,
+place any **gray** letters (if there are no gray letters, leave it empty by putting
+a `'.'`). Once this is done, you can build and run the solver.
+
+The blank starting `input.json` should like like the following...
+
+```json
+{
+    "game_board": [
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."]
+    ],
+    "unplaced_letters": [
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."]
+    ],
+    "unused_letters": ["."]
+}
+```
 
 ### Processes
 
@@ -45,6 +68,10 @@ Build the project with...
 ```bash
 $ make
 ```
+
+Once you build the solver, you do not need to build it again unless you make
+changes to it. To solve a new Squareword, simply update `input.json` to reflect
+the new board state and run `./bin/main`.
 
 ## Run
 
@@ -74,62 +101,69 @@ $ make clean
 
 ### Example 1
 
-```c
-char board[GRID_SIZE][GRID_SIZE] = {
-{'.','.','.','.','.'},
-{'.','.','.','.','t'},
-{'.','.','.','.','e'},
-{'.','r','.','.','e'},
-{'.','o','.','.','.'},
-};
+The `input.json` should look like this...
 
-char unplaced[GRID_SIZE][GRID_SIZE] = {
-{'a','i','s','t','.'},
-{'i','u','n','.','.'},
-{'s','o','t','.','.'},
-{'e','o','.','.','.'},
-{'e','t','.','.','.'},
-};
+```json
+{
+    "game_board": [
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "t"],
+        [".", ".", ".", ".", "e"],
+        [".", "r", ".", ".", "e"],
+        [".", "o", ".", ".", "."]
+    ],
+    "unplaced_letters": [
+        ["a", "i", "s", "t", "."],
+        ["i", "u", "n", ".", "."],
+        ["s", "o", "t", ".", "."],
+        ["e", "o", ".", ".", "."],
+        ["e", "t", ".", ".", "."]
+    ],
+    "unused_letters": ["."]
+}
+```
 
-char unused[] = {'.'};
+The possible solutions found are...
 
-// This is the intended answer
-final_solution = {
-{'f','i','a','t','s'},
-{'u','n','f','i','t'},
-{'s','t','o','l','e'},
-{'e','r','o','d','e'},
-{'d','o','t','e','d'},
-};
+```
+fiats
+unfit
+stole
+erode
+doted
+```
+and...
+
+```
+fiats
+unfit
+stole
+erode
+doter
 ```
 
 ### Example 2
 
-```c
-char board[GRID_SIZE][GRID_SIZE] = {
-{'.','.','.','.','.'},
-{'.','.','.','.','.'},
-{'.','.','u','.','e'},
-{'a','.','.','.','e'},
-{'.','r','.','.','.'},
-};
+The `input.json` should look like this...
 
-char unplaced[GRID_SIZE][GRID_SIZE] = {
-{'a','s','m','.','.'},
-{'a','e','.','.','.'},
-{'e','.','.','.','.'},
-{'e','i','r','.','.'},
-{'a','e','.','.','.'},
-};
-
-char unused[] = {'t', 'o', 'n'};
-
-// This is the intended answer
-final_solution = {
-{'s','p','a','m','s'},
-{'h','a','z','e','l'},
-{'e','l','u','d','e'},
-{'a','e','r','i','e'},
-{'f','r','e','a','k'},
-};
+```json
+{
+    "game_board": [
+        [".", ".", ".", ".", "."],
+        [".", ".", ".", ".", "."],
+        [".", ".", "u", ".", "e"],
+        ["a", ".", ".", ".", "e"],
+        [".", "r", ".", ".", "."]
+    ],
+    "unplaced_letters": [
+        ["a", "s", "m", ".", "."],
+        ["a", "e", ".", ".", "."],
+        ["e", ".", ".", ".", "."],
+        ["e", "i", "r", ".", "."],
+        ["a", "e", ".", ".", "."]
+    ],
+    "unused_letters": ["t", "o", "n"]
+}
 ```
+
+The possible solutions found are...
