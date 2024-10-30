@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -167,7 +168,11 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
                 char word[], int row) {
     // For a word to fit in a row, a word must:
     // 1. Have the known letters in the same place as the game board
-    // 2. The unplaced letters match the other letters in the word being checked
+    // 2. The frequency of each letter in the word is >= the number in the solution
+    // and the unplaced letters combined
+
+    int letter_freq[NUM_LETTERS] = {0};
+    int word_letter_freq[NUM_LETTERS] = {0};
 
     // Check if known characters match
     for (int col = 0; col < GRID_SIZE; col++) {
@@ -176,20 +181,36 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
         }
 
         if (solution[row][col] != word[col]) {
-            logger(DEBUG, __func__, "'%s' does not fit in row %d - known don't match", word, row + 1);
+            logger(DEBUG, __func__, "'%s' does not fit in row %d - known characters don't match", word, row + 1);
             return 0; // Characters don't match
         }
     }
 
-    // Check if all known unplaced characters are in the word
-    for (int col = 0; col < GRID_SIZE; col++) {
-        if (unplaced[row][col] == '.') {
-            continue; // Unknown character
+    // Check character frequency
+    // Count occurance of each letter in solution
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (solution[row][i] != '.') {
+            letter_freq[solution[row][i] - 'a']++;
         }
+    }
 
-        if (!strchr(word, unplaced[row][col])) {
-            logger(DEBUG, __func__, "'%s' does not fit in row %d - unplaced don't match", word, row + 1);
-            return 0; // Characters is not in the word
+    // Add unplaced letters
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (unplaced[row][i] != '.') {
+            letter_freq[unplaced[row][i] - 'a']++;
+        }
+    }
+
+    // Count occurance of each letter in word
+    for (int i = 0; i < GRID_SIZE; i++) {
+        word_letter_freq[word[i] - 'a']++;
+    }
+
+    // Check that the word has at least as many of each letter
+    for (int i = 0; i < NUM_LETTERS; i++) {
+        if (word_letter_freq[i] < letter_freq[i]) {
+            logger(DEBUG, __func__, "'%s' does not fit in row %d - letter frequency", word, row + 1);
+            return 0; // Word doesn't fit
         }
     }
 
@@ -286,12 +307,37 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     int words_per_group = 0;
     char solution[GRID_SIZE][GRID_SIZE];
 
+    // Force everything lowercase
+    for (int i = 0; i < MAX_WORD_COUNT; i++) {
+        for (int j = 0; j < WORD_LENGTH; j++) {
+            words[i][j] = tolower(words[i][j]);
+        }
+    }
+
+    for (int row = 0; row < GRID_SIZE; row++) {
+        for (int col = 0; col < GRID_SIZE; col++) {
+            board[row][col] = tolower(board[row][col]);
+        }
+    }
+
+    for (int row = 0; row < GRID_SIZE; row++) {
+        for (int col = 0; col < GRID_SIZE; col++) {
+            unplaced[row][col] = tolower(unplaced[row][col]);
+        }
+    }
+
+    for (int i = 0; i < unused_length; i++) {
+        unused[i] = tolower(unused[i]);
+    }
+
     logger(INFO, __func__, "Starting solver");
 
     logger(INFO, __func__, "Number of starting words: %d", MAX_WORD_COUNT);
     valid_word_count = filter_words(words, valid_words, unused, unused_length);
     logger(INFO, __func__, "Number of valid words: %d", valid_word_count);
     words_per_group = valid_word_count / NUM_PROCESSES;
+
+    logger(INFO, __func__, "Unused letter(s) (%d): %s", unused_length, unused);
 
     // Copy beginning board state to solution
     memcpy(solution, board, GRID_SIZE * GRID_SIZE * sizeof(char));
@@ -341,12 +387,14 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
                    getpid(), valid_words[pid_start], valid_words[pid_end]);
 
             solve(board, unplaced, solution, valid_words, valid_word_count, pid_start, pid_end, 0);
+
+            logger(INFO, __func__, "[%d] Finished checking words from '%s' to '%s' for row 1 (%lu iterations)",
+                   getpid(), valid_words[pid_start], valid_words[pid_end], m_iterations);
+
             pthread_mutex_lock(&m_shared_data->mutex);
             m_shared_data->iterations += m_iterations;
             pthread_mutex_unlock(&m_shared_data->mutex);
 
-            logger(INFO, __func__, "[%d] Finished checking words (%ul iterations)",
-                   getpid(), m_iterations);
             exit(0);
         } else {
             // Parent process
@@ -365,6 +413,8 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     minutes = (int) ((elapsed_time - (hours * 3600)) / 60);
     seconds = (int) (elapsed_time - (hours * 3600) - (minutes * 60));
     logger(INFO, __func__, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
+
+    pthread_mutex_lock(&m_shared_data->mutex);
     logger(INFO, __func__, "Total number of iterations: %lu", m_shared_data->iterations);
 
     if (m_shared_data->solution_count == 0) {
@@ -383,6 +433,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
         }
             printf("\n");
     }
+    pthread_mutex_unlock(&m_shared_data->mutex);
 
     // Clean up
     pthread_mutex_destroy(&m_shared_data->mutex); 

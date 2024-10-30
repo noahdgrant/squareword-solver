@@ -87,11 +87,55 @@ void test_fits_in_row_unplaced_fail() {
     assert(0 == result);
 }
 
+void test_fits_in_row_double_letter_pass() {
+    char solution[GRID_SIZE][GRID_SIZE] = {
+        {'b', 'e', '.', 't', 's'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'}
+    };
+    char unplaced[GRID_SIZE][GRID_SIZE] = {
+        {'e', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'}
+    };
+
+    // Test cases
+    int result = fits_in_row(solution, unplaced, "beets", 0);
+    assert(1 == result);
+}
+
+void test_fits_in_row_double_letter_fail() {
+    char solution[GRID_SIZE][GRID_SIZE] = {
+        {'b', 'e', '.', 't', 's'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'}
+    };
+    char unplaced[GRID_SIZE][GRID_SIZE] = {
+        {'e', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'},
+        {'.', '.', '.', '.', '.'}
+    };
+
+    // Test cases
+    int result = fits_in_row(solution, unplaced, "beats", 0);
+    assert(0 == result);
+}
+
 int main() {
     test_fits_in_row_pass();
     test_fits_in_row_fail();
     test_fits_in_row_unplaced_pass();
     test_fits_in_row_unplaced_fail();
+    test_fits_in_row_double_letter_pass();
+    test_fits_in_row_double_letter_fail();
 
     printf("All tests passed\n");
     return 0;
