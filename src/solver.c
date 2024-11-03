@@ -16,6 +16,7 @@ typedef struct {
     int solution_count;
     char solutions[MAX_SOLUTION_COUNT][GRID_SIZE][GRID_SIZE];
     unsigned long iterations;
+    int next_word_index;
     pthread_mutex_t mutex;
 } shared_data_t;
 shared_data_t* m_shared_data;
@@ -300,11 +301,10 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     int hours, minutes, seconds;
     double elapsed_time;
     pid_t pids[NUM_PROCESSES];
-    int pid_start = 0;
-    int pid_end = 0;
+    int current_word_index = 0;
+    int first_row_words_checked = 0;
     char valid_words[MAX_WORD_COUNT][WORD_LENGTH];
     int valid_word_count = 0;
-    int words_per_group = 0;
     char solution[GRID_SIZE][GRID_SIZE];
 
     // Force everything lowercase
@@ -335,7 +335,6 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     logger(INFO, __func__, "Number of starting words: %d", MAX_WORD_COUNT);
     valid_word_count = filter_words(words, valid_words, unused, unused_length);
     logger(INFO, __func__, "Number of valid words: %d", valid_word_count);
-    words_per_group = valid_word_count / NUM_PROCESSES;
 
     logger(INFO, __func__, "Unused letter(s) (%d): %s", unused_length, unused);
 
@@ -355,6 +354,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
 
     m_shared_data->solution_count = 0;
     m_shared_data->iterations = 0;
+    m_shared_data->next_word_index = 0;
     pthread_mutexattr_t mutex_attr;
     pthread_mutexattr_init(&mutex_attr);
     pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
@@ -367,13 +367,6 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     gettimeofday(&start, NULL);
     // Split up word list for each process
     for (int i = 0; i < NUM_PROCESSES; i++) {
-        pid_start = i * words_per_group;
-        if (i == NUM_PROCESSES - 1) {
-            pid_end = valid_word_count - 1;
-        } else {
-            pid_end = pid_start + words_per_group;
-        }
-
         pids[i] = fork();
         if (pids[i] < 0) {
             logger(ERROR, __func__, "Fork failed");
@@ -381,19 +374,32 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
             return err_code;
         } else if (pids[i] == 0) {
             // Child process
-            // Each child process will try a different section of the word list
-            // for the first row
-            logger(INFO, __func__, "[%d] Checking words from '%s' to '%s' for row 1",
-                   getpid(), valid_words[pid_start], valid_words[pid_end]);
+            logger(INFO, __func__, "[%d] Starting", getpid());
 
-            solve(board, unplaced, solution, valid_words, valid_word_count, pid_start, pid_end, 0);
+            while (1) {
+                pthread_mutex_lock(&m_shared_data->mutex);
+                current_word_index = m_shared_data->next_word_index;
+                m_shared_data->next_word_index++;
+                pthread_mutex_unlock(&m_shared_data->mutex);
 
-            logger(INFO, __func__, "[%d] Finished checking words from '%s' to '%s' for row 1 (%lu iterations)",
-                   getpid(), valid_words[pid_start], valid_words[pid_end], m_iterations);
+                if (current_word_index < valid_word_count) {
+                    logger(DEBUG, __func__, "[%d] Checking '%s' - current index is %d",
+                           getpid(), valid_words[current_word_index], current_word_index);
+                    solve(board, unplaced, solution, valid_words, valid_word_count,
+                          current_word_index, current_word_index + 1, 0);
+                    first_row_words_checked++;
+                } else {
+                    // All first row words have been tried
+                    break;
+                }
+            }
 
             pthread_mutex_lock(&m_shared_data->mutex);
             m_shared_data->iterations += m_iterations;
             pthread_mutex_unlock(&m_shared_data->mutex);
+
+            logger(INFO, __func__, "[%d] Finished - checked %d first row words in %lu iterations",
+                   getpid(), first_row_words_checked, m_iterations);
 
             exit(0);
         } else {
