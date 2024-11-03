@@ -78,7 +78,7 @@ the new board state and run `./bin/main`.
 Run the binary from the project root with...
 
 ```bash
-$ ./bin/main
+$ make run
 ```
 
 ## Test
