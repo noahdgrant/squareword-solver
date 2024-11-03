@@ -1,7 +1,13 @@
 #!/bin/bash
 
+# Exit script immediately with a non-zero value if any command returns
+# a non-zero value
+set -e
+
 # Directory containing test files
 TEST_DIR=tests
+
+echo "Running tests..."
 
 # Compile and run each test file
 for test_file in $TEST_DIR/*.c; do
@@ -11,6 +17,8 @@ for test_file in $TEST_DIR/*.c; do
         echo "Running $test_name..."
         ./bin/$test_name
     else
-        echo "Failed to compile $test_name"
+        echo "ERROR: Failed to compile $test_name"
     fi
 done
+
+echo "Finished running tests"

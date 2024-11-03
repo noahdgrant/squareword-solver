@@ -11,9 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: setup
+    - name: Setup
       run: chmod +x setup.sh && ./setup.sh
-    - name: build
+    - name: Build
       run: make
 
   test:
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: setup
-      run: chmod +x setup.sh && ./setup.sh
-    - name: run tests
-      run: make test
+    - name: Setup
+      run: pwd && chmod +x setup.sh && ./setup.sh
+    - name: Run tests
+      run: pwd && make test
