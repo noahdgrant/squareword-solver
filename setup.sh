@@ -28,4 +28,4 @@ echo '{
     "unused_letters": ["."]
 }' > "input.json"
 
-echo "Setup finished"
+echo "Setup complete"

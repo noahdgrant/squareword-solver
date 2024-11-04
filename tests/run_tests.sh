@@ -7,6 +7,9 @@ set -e
 # Directory containing test files
 TEST_DIR=tests
 
+# Create the bin directory if it doesn't exist
+mkdir -p bin
+
 echo "Running tests..."
 
 # Compile and run each test file
