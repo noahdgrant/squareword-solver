@@ -251,16 +251,16 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
         // Solution found
         // Append to the solutions array and keep looking
         pthread_mutex_lock(&m_shared_data->mutex);
+        m_shared_data->solution_count++;
         if (m_shared_data->solution_count < MAX_SOLUTION_COUNT) {
             memcpy(m_shared_data->solutions[m_shared_data->solution_count],
                    solution, sizeof(m_shared_data->solutions[0]));
-            m_shared_data->solution_count++;
             logger(INFO, __func__, "[%d] Solution found (%d)...", getpid(),
                    m_shared_data->solution_count);
             print_current_solution(solution, unplaced);
         } else {
-            logger(WARNING, __func__, "[%d] Found more than %d possible solutions",
-                   getpid(), MAX_SOLUTION_COUNT);
+            logger(WARNING, __func__, "[%d] Found more than %d possible solutions - %d",
+                   getpid(), MAX_SOLUTION_COUNT, m_shared_data->solution_count);
         }
         pthread_mutex_unlock(&m_shared_data->mutex);
         return;
@@ -427,7 +427,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
         logger(ERROR, __func__, "Did not find any solutions");
         err_code = 1;
     } else {
-        logger(INFO, __func__, "Found %d solutions", m_shared_data->solution_count);
+        logger(INFO, __func__, "Found %d solution(s)", m_shared_data->solution_count);
     }
 
     for (int i = 0; i < m_shared_data->solution_count; i++) {
