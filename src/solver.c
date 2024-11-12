@@ -25,7 +25,7 @@ unsigned long m_iterations = 0;
 
 // Prints the current state of the solution[][] array
 static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]) {
-    logger(DEBUG, __func__, "Current solution...");
+    logger(DEBUG, __func__, "[%d] Current solution...", getpid());
     for (int row = 0; row < GRID_SIZE; row++) {
         for (int col = 0; col < GRID_SIZE; col++) {
             fprintf(stderr, "%c", solution[row][col]);
@@ -80,9 +80,11 @@ static int validate_columns(char grid[GRID_SIZE][GRID_SIZE], char words[MAX_WORD
             }
         }
 
-        if (word_length == GRID_SIZE) { // Check only complete words
+        // Check only complete words
+        if (word_length == GRID_SIZE) {
             if (!is_valid_word(word, words, word_count)) {
-                logger(DEBUG, __func__, "Invalid word '%s' in column %d", word, col + 1);
+                logger(DEBUG, __func__, "[%] Invalid word '%s' in column %d",
+                       getpid(), word, col + 1);
                 return 0; // Invalid word found
             }
         }
@@ -90,43 +92,45 @@ static int validate_columns(char grid[GRID_SIZE][GRID_SIZE], char words[MAX_WORD
     return 1; // All complete words are valid
 }
 
-// Function to check if a word is in the grid
-static int is_in_grid(char grid[GRID_SIZE][GRID_SIZE], char word[]) {
-    int word_length = strlen(word);
+// Function to check if a word would be repeated in the grid
+int is_repeated_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row) {
+    int word_length = 0;
+    char column_word[WORD_LENGTH] = {0};
+    column_word[WORD_LENGTH - 1] = '\0';
 
-    // Check horizontally
-    for (int row = 0; row < GRID_SIZE; row++) {
-        for (int col = 0; col <= GRID_SIZE - word_length; col++) {
-            int match = 1;
-            for (int k = 0; k < word_length; k++) {
-                if (grid[row][col + k] != word[k]) {
-                    match = 0;
-                    break;
-                }
-            }
-            if (match) {
-                return 1; // Word found horizontally
+    // Check rows
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (strncmp(grid[i], word, GRID_SIZE) == 0) {
+            // Match found
+            if (i != row) {
+                // Repeat word
+                return 1;
             }
         }
     }
 
-    // Check vertically
+    // Check columns
     for (int col = 0; col < GRID_SIZE; col++) {
-        for (int row = 0; row <= GRID_SIZE - word_length; row++) {
-            int match = 1;
-            for (int k = 0; k < word_length; k++) {
-                if (grid[row + k][col] != word[k]) {
-                    match = 0;
-                    break;
-                }
+        word_length = 0;
+
+        for (int row = 0; row < GRID_SIZE; row++) {
+            if (grid[row][col] != '.') {
+                column_word[word_length++] = grid[row][col];
+            } else {
+                break; // Stop if an incomplete word is found
             }
-            if (match) {
-                return 1; // Word found vertically
+        }
+
+        // Check only complete words
+        if (word_length == GRID_SIZE) {
+            if (strncmp(column_word, word, GRID_SIZE) == 0) {
+                // Repeat word
+                return 1;
             }
         }
     }
 
-    return 0; // Word not found
+    return 0; // Word not repeated
 }
 
 // Function to filter out words containing unused letters
@@ -182,7 +186,8 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
         }
 
         if (solution[row][col] != word[col]) {
-            logger(DEBUG, __func__, "'%s' does not fit in row %d - known characters don't match", word, row + 1);
+            logger(DEBUG, __func__, "[%d] '%s' does not fit in row %d - known characters don't match",
+                   getpid(), word, row + 1);
             return 0; // Characters don't match
         }
     }
@@ -210,18 +215,19 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
     // Check that the word has at least as many of each letter
     for (int i = 0; i < NUM_LETTERS; i++) {
         if (word_letter_freq[i] < letter_freq[i]) {
-            logger(DEBUG, __func__, "'%s' does not fit in row %d - letter frequency", word, row + 1);
+            logger(DEBUG, __func__, "[%d] '%s' does not fit in row %d - letter frequency",
+                   getpid(), word, row + 1);
             return 0; // Word doesn't fit
         }
     }
 
-    logger(DEBUG, __func__, "'%s' fits in row %d", word, row + 1);
+    logger(DEBUG, __func__, "[%d] '%s' fits in row %d", getpid(), word, row + 1);
     return 1; // Word fits in row
 }
 
 // Function to place a word in the grid
 void place_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row) {
-    logger(DEBUG, __func__, "Placing '%s' in row %d", word, row + 1);
+    logger(DEBUG, __func__, "[%d] Placing '%s' in row %d", getpid(), word, row + 1);
     for (int i = 0; i < GRID_SIZE; i++) {
         grid[row][i] = word[i];
     }
@@ -233,7 +239,7 @@ void place_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row) {
 void remove_word(char board[GRID_SIZE][GRID_SIZE], char solution[GRID_SIZE][GRID_SIZE], int row) {
     char placeholder = '.';
 
-    logger(DEBUG, __func__, "Removing the word in row %d", row + 1);
+    logger(DEBUG, __func__, "[%d] Removing the word in row %d", getpid(), row + 1);
     for (int i = 0; i < GRID_SIZE; i++) {
         if (board[row][i] == placeholder) {
             solution[row][i] = placeholder;
@@ -251,7 +257,6 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
         // Solution found
         // Append to the solutions array and keep looking
         pthread_mutex_lock(&m_shared_data->mutex);
-        m_shared_data->solution_count++;
         if (m_shared_data->solution_count < MAX_SOLUTION_COUNT) {
             memcpy(m_shared_data->solutions[m_shared_data->solution_count],
                    solution, sizeof(m_shared_data->solutions[0]));
@@ -262,12 +267,13 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
             logger(WARNING, __func__, "[%d] Found more than %d possible solutions - %d",
                    getpid(), MAX_SOLUTION_COUNT, m_shared_data->solution_count);
         }
+        m_shared_data->solution_count++;
         pthread_mutex_unlock(&m_shared_data->mutex);
         return;
     }
 
     for (int index = start_index; index < end_index; index++) {
-        if (is_in_grid(solution, words[index])) {
+        if (is_repeated_word(solution, words[index], row)) {
             // Cannot repeat words
             continue;
         }
@@ -427,7 +433,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
         logger(ERROR, __func__, "Did not find any solutions");
         err_code = 1;
     } else {
-        logger(INFO, __func__, "Found %d solution(s)", m_shared_data->solution_count);
+        logger(INFO, __func__, "Found %d solution(s)...", m_shared_data->solution_count);
     }
 
     for (int i = 0; i < m_shared_data->solution_count; i++) {

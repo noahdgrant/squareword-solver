@@ -9,6 +9,7 @@
 #define NUM_LETTERS 26              // number of letters in the alphabet
 
 int compare_arrays(char arr1[GRID_SIZE][GRID_SIZE], char arr2[GRID_SIZE][GRID_SIZE]);
+int is_repeated_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row);
 void print_grid(char grid[GRID_SIZE][GRID_SIZE]);
 int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE],
                 char word[], int row);
