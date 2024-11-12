@@ -39,7 +39,6 @@ static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unp
         fprintf(stderr, "]");
         fprintf(stderr, "\n");
     }
-
 }
 
 // Checks if the grid has any empty slots
@@ -341,6 +340,12 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     logger(INFO, __func__, "Number of starting words: %d", MAX_WORD_COUNT);
     valid_word_count = filter_words(words, valid_words, unused, unused_length);
     logger(INFO, __func__, "Number of valid words: %d", valid_word_count);
+    logger(DEBUG, __func__, "List of valid words...");
+    if (logger_get_level() == DEBUG) {
+        for (int i = 0; i < valid_word_count; i++) {
+            fprintf(stderr, "%s\n", valid_words[i]);
+        }
+    }
 
     logger(INFO, __func__, "Unused letter(s) (%d): %s", unused_length, unused);
 
@@ -439,11 +444,11 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     for (int i = 0; i < m_shared_data->solution_count; i++) {
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
-                printf("%c", m_shared_data->solutions[i][row][col]);
+                fprintf(stderr, "%c", m_shared_data->solutions[i][row][col]);
             }
-            printf("\n");
+            fprintf(stderr, "\n");
         }
-            printf("\n");
+            fprintf(stderr, "\n");
     }
     pthread_mutex_unlock(&m_shared_data->mutex);
 
