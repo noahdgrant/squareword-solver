@@ -25,7 +25,7 @@ unsigned long m_iterations = 0;
 
 // Prints the current state of the solution[][] array
 static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]) {
-    logger(DEBUG, __func__, "[%d] Current solution...", getpid());
+    logger(DEBUG, "[%d] Current solution...", getpid());
     for (int row = 0; row < GRID_SIZE; row++) {
         for (int col = 0; col < GRID_SIZE; col++) {
             fprintf(stderr, "%c", solution[row][col]);
@@ -82,7 +82,7 @@ static int validate_columns(char grid[GRID_SIZE][GRID_SIZE], char words[MAX_WORD
         // Check only complete words
         if (word_length == GRID_SIZE) {
             if (!is_valid_word(word, words, word_count)) {
-                logger(DEBUG, __func__, "[%] Invalid word '%s' in column %d",
+                logger(DEBUG, "[%] Invalid word '%s' in column %d",
                        getpid(), word, col + 1);
                 return 0; // Invalid word found
             }
@@ -185,7 +185,7 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
         }
 
         if (solution[row][col] != word[col]) {
-            logger(DEBUG, __func__, "[%d] '%s' does not fit in row %d - known characters don't match",
+            logger(DEBUG, "[%d] '%s' does not fit in row %d - known characters don't match",
                    getpid(), word, row + 1);
             return 0; // Characters don't match
         }
@@ -214,19 +214,19 @@ int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GR
     // Check that the word has at least as many of each letter
     for (int i = 0; i < NUM_LETTERS; i++) {
         if (word_letter_freq[i] < letter_freq[i]) {
-            logger(DEBUG, __func__, "[%d] '%s' does not fit in row %d - letter frequency",
+            logger(DEBUG, "[%d] '%s' does not fit in row %d - letter frequency",
                    getpid(), word, row + 1);
             return 0; // Word doesn't fit
         }
     }
 
-    logger(DEBUG, __func__, "[%d] '%s' fits in row %d", getpid(), word, row + 1);
+    logger(DEBUG, "[%d] '%s' fits in row %d", getpid(), word, row + 1);
     return 1; // Word fits in row
 }
 
 // Function to place a word in the grid
 void place_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row) {
-    logger(DEBUG, __func__, "[%d] Placing '%s' in row %d", getpid(), word, row + 1);
+    logger(DEBUG, "[%d] Placing '%s' in row %d", getpid(), word, row + 1);
     for (int i = 0; i < GRID_SIZE; i++) {
         grid[row][i] = word[i];
     }
@@ -238,7 +238,7 @@ void place_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row) {
 void remove_word(char board[GRID_SIZE][GRID_SIZE], char solution[GRID_SIZE][GRID_SIZE], int row) {
     char placeholder = '.';
 
-    logger(DEBUG, __func__, "[%d] Removing the word in row %d", getpid(), row + 1);
+    logger(DEBUG, "[%d] Removing the word in row %d", getpid(), row + 1);
     for (int i = 0; i < GRID_SIZE; i++) {
         if (board[row][i] == placeholder) {
             solution[row][i] = placeholder;
@@ -259,11 +259,11 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
         if (m_shared_data->solution_count < MAX_SOLUTION_COUNT) {
             memcpy(m_shared_data->solutions[m_shared_data->solution_count],
                    solution, sizeof(m_shared_data->solutions[0]));
-            logger(INFO, __func__, "[%d] Solution found (%d)...", getpid(),
+            logger(INFO, "[%d] Solution found (%d)...", getpid(),
                    m_shared_data->solution_count);
             print_current_solution(solution, unplaced);
         } else {
-            logger(WARNING, __func__, "[%d] Found more than %d possible solutions - %d",
+            logger(WARNING, "[%d] Found more than %d possible solutions - %d",
                    getpid(), MAX_SOLUTION_COUNT, m_shared_data->solution_count);
         }
         m_shared_data->solution_count++;
@@ -345,13 +345,13 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
                 if (unused[i] != '.' && unused[i] == board[row][col]) {
-                    logger(ERROR, __func__, "Unused letter '%c' in game board (%d, %d)",
+                    logger(ERROR, "Unused letter '%c' in game board (%d, %d)",
                            unused[i], row + 1, col + 1);
                     err_code = 1;
                     return err_code;
                 }
                 if (unused[i] != '.' && unused[i] == unplaced[row][col]) {
-                    logger(ERROR, __func__, "Unused letter '%c' in unplaced board (%d, %d)",
+                    logger(ERROR, "Unused letter '%c' in unplaced board (%d, %d)",
                            unused[i], row + 1, col + 1);
                     err_code = 1;
                     return err_code;
@@ -373,7 +373,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
             }
         }
         if (number_of_letters_in_row > GRID_SIZE) {
-            logger(ERROR, __func__, "Too many letters for row between game board and unused letters (%d)",
+            logger(ERROR, "Too many letters for row between game board and unused letters (%d)",
                    number_of_letters_in_row);
             err_code = 1;
             return err_code;
@@ -388,7 +388,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
             char_index = current_char - 'a';
             if (current_char != '.') {
                 if (unplaced_row_letters[char_index]) {
-                    logger(ERROR, __func__, "Duplicate letter '%c' found in unplaced row %d",
+                    logger(ERROR, "Duplicate letter '%c' found in unplaced row %d",
                            current_char, row + 1);
                     err_code = 1;
                     return err_code;
@@ -403,7 +403,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
         current_char = unused[i];
         if (current_char != '.') {
             if (unused_letters_count[current_char - 'a']) {
-                logger(ERROR, __func__, "Duplicate letter '%c' found in unused letters",
+                logger(ERROR, "Duplicate letter '%c' found in unused letters",
                        current_char);
                 err_code = 1;
                 return err_code;
@@ -412,30 +412,30 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
         }
     }
 
-    logger(INFO, __func__, "Starting solver");
+    logger(INFO, "Starting solver");
 
-    logger(INFO, __func__, "Number of starting words: %d", MAX_WORD_COUNT);
+    logger(INFO, "Number of starting words: %d", MAX_WORD_COUNT);
     valid_word_count = filter_words(words, valid_words, unused, unused_length);
-    logger(INFO, __func__, "Number of valid words: %d", valid_word_count);
-    logger(DEBUG, __func__, "List of valid words...");
+    logger(INFO, "Number of valid words: %d", valid_word_count);
+    logger(DEBUG, "List of valid words...");
     if (logger_get_level() == DEBUG) {
         for (int i = 0; i < valid_word_count; i++) {
             fprintf(stderr, "%s\n", valid_words[i]);
         }
     }
 
-    logger(INFO, __func__, "Unused letter(s) (%d): %s", unused_length, unused);
+    logger(INFO, "Unused letter(s) (%d): %s", unused_length, unused);
 
     // Copy beginning board state to solution
     memcpy(solution, board, GRID_SIZE * GRID_SIZE * sizeof(char));
 
-    logger(INFO, __func__, "Starting board...");
+    logger(INFO, "Starting board...");
     print_current_solution(solution, unplaced);
 
     // Setup shared memory
     m_shared_data = mmap(NULL, sizeof(shared_data_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (m_shared_data == MAP_FAILED) {
-        logger(ERROR, __func__, "Failed to setup shared memory");
+        logger(ERROR, "Failed to setup shared memory");
         err_code = 1;
         return err_code;
     }
@@ -447,7 +447,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     pthread_mutexattr_init(&mutex_attr);
     pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
     if (pthread_mutex_init(&m_shared_data->mutex, &mutex_attr) != 0) {
-        logger(ERROR, __func__, "Failed to initialize the mutex"); 
+        logger(ERROR, "Failed to initialize the mutex"); 
         err_code = 1;
         return err_code; 
     }
@@ -457,12 +457,12 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     for (int i = 0; i < NUM_PROCESSES; i++) {
         pids[i] = fork();
         if (pids[i] < 0) {
-            logger(ERROR, __func__, "Fork failed");
+            logger(ERROR, "Fork failed");
             err_code = 1;
             return err_code;
         } else if (pids[i] == 0) {
             // Child process
-            logger(INFO, __func__, "[%d] Starting", getpid());
+            logger(INFO, "[%d] Starting", getpid());
 
             while (1) {
                 pthread_mutex_lock(&m_shared_data->mutex);
@@ -471,7 +471,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
                 pthread_mutex_unlock(&m_shared_data->mutex);
 
                 if (current_word_index < valid_word_count) {
-                    logger(DEBUG, __func__, "[%d] Checking '%s' - current index is %d",
+                    logger(DEBUG, "[%d] Checking '%s' - current index is %d",
                            getpid(), valid_words[current_word_index], current_word_index);
                     solve(board, unplaced, solution, valid_words, valid_word_count,
                           current_word_index, current_word_index + 1, 0);
@@ -486,7 +486,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
             m_shared_data->iterations += m_iterations;
             pthread_mutex_unlock(&m_shared_data->mutex);
 
-            logger(INFO, __func__, "[%d] Finished - checked %d first row words in %lu iterations",
+            logger(INFO, "[%d] Finished - checked %d first row words in %lu iterations",
                    getpid(), first_row_words_checked, m_iterations);
 
             exit(0);
@@ -506,16 +506,16 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     hours = (int) (elapsed_time / 3600);
     minutes = (int) ((elapsed_time - (hours * 3600)) / 60);
     seconds = (int) (elapsed_time - (hours * 3600) - (minutes * 60));
-    logger(INFO, __func__, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
+    logger(INFO, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
 
     pthread_mutex_lock(&m_shared_data->mutex);
-    logger(INFO, __func__, "Total number of iterations: %lu", m_shared_data->iterations);
+    logger(INFO, "Total number of iterations: %lu", m_shared_data->iterations);
 
     if (m_shared_data->solution_count == 0) {
-        logger(ERROR, __func__, "Did not find any solutions");
+        logger(ERROR, "Did not find any solutions");
         err_code = 1;
     } else {
-        logger(INFO, __func__, "Found %d solution(s)...", m_shared_data->solution_count);
+        logger(INFO, "Found %d solution(s)...", m_shared_data->solution_count);
     }
 
     for (int i = 0; i < m_shared_data->solution_count; i++) {
@@ -533,6 +533,6 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     pthread_mutex_destroy(&m_shared_data->mutex); 
     munmap(m_shared_data, sizeof(shared_data_t));
 
-    logger(INFO, __func__, "Finished solver");
+    logger(INFO, "Finished solver");
     return err_code;
 }

@@ -31,7 +31,7 @@ static const char* logger_level_to_string(LogLevel level) {
             level_str = "FATAL";
             break;
         default:
-            logger(FATAL, __func__, "Unknown logger level: %d", level);
+            logger(FATAL, "Unknown logger level: %d", level);
             exit(1);
             break;
     }
@@ -53,7 +53,7 @@ LogLevel logger_level_from_string(const char* level_str) {
     } else if (strcmp(level_str, "FATAL") == 0) {
         level = FATAL;
     } else {
-        logger(FATAL, __func__, "Unknown logger level: %s", level_str);
+        logger(FATAL, "Unknown logger level: %s", level_str);
         exit(1);
     }
     return level;
@@ -68,7 +68,7 @@ void logger_set_level(LogLevel level) {
     return;
 }
 
-void logger(LogLevel level, const char* function_name, const char *message, ...) {
+void logger_log(LogLevel level, const char* function_name, const char *message, ...) {
     if (level < m_logger_level) {
         return;
     }

@@ -10,9 +10,11 @@ typedef enum {
     FATAL
 } LogLevel;
 
-LogLevel logger_level_from_string(const char* level_string);
-LogLevel logger_get_level();
+#define logger(level, ...) logger_log(level, __func__, __VA_ARGS__)
+
+void logger_log(LogLevel level, const char* function_name, const char *message, ...);
 void logger_set_level(LogLevel level);
-void logger(LogLevel level, const char* function_name, const char *message, ...);
+LogLevel logger_get_level();
+LogLevel logger_level_from_string(const char* level_string);
 
 #endif
