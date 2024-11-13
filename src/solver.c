@@ -311,6 +311,10 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     char valid_words[MAX_WORD_COUNT][WORD_LENGTH];
     int valid_word_count = 0;
     char solution[GRID_SIZE][GRID_SIZE];
+    int number_of_letters_in_row = 0;
+    char current_char;
+    int char_index;
+    int unused_letters_count[NUM_LETTERS] = {0};
 
     // Force everything lowercase
     for (int i = 0; i < MAX_WORD_COUNT; i++) {
@@ -333,6 +337,79 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
 
     for (int i = 0; i < unused_length; i++) {
         unused[i] = tolower(unused[i]);
+    }
+
+    // Validate that there are no letters in the unused array that are in the
+    // in game board or unplaced letters
+    for (int i = 0; i < unused_length; i++) {
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                if (unused[i] != '.' && unused[i] == board[row][col]) {
+                    logger(ERROR, __func__, "Unused letter '%c' in game board (%d, %d)",
+                           unused[i], row + 1, col + 1);
+                    err_code = 1;
+                    return err_code;
+                }
+                if (unused[i] != '.' && unused[i] == unplaced[row][col]) {
+                    logger(ERROR, __func__, "Unused letter '%c' in unplaced board (%d, %d)",
+                           unused[i], row + 1, col + 1);
+                    err_code = 1;
+                    return err_code;
+                }
+            }
+        }
+    }
+
+    // Validate that there are not more than five letters for a row between
+    // the starting board and the unplaced letters
+    for (int row = 0; row < GRID_SIZE; row++) {
+        number_of_letters_in_row = 0;
+        for (int col = 0; col < GRID_SIZE; col++) {
+            if (board[row][col] != '.') {
+                number_of_letters_in_row++;
+            }
+            if (unplaced[row][col] != '.') {
+                number_of_letters_in_row++;
+            }
+        }
+        if (number_of_letters_in_row > GRID_SIZE) {
+            logger(ERROR, __func__, "Too many letters for row between game board and unused letters (%d)",
+                   number_of_letters_in_row);
+            err_code = 1;
+            return err_code;
+        }
+    }
+
+    // Validate that there are no duplicates in an unplaced row
+    for (int row = 0; row < GRID_SIZE; row++) {
+        int unplaced_row_letters[NUM_LETTERS] = {0};
+        for (int col = 0; col < GRID_SIZE; col++) {
+            current_char = unplaced[row][col];
+            char_index = current_char - 'a';
+            if (current_char != '.') {
+                if (unplaced_row_letters[char_index]) {
+                    logger(ERROR, __func__, "Duplicate letter '%c' found in unplaced row %d",
+                           current_char, row + 1);
+                    err_code = 1;
+                    return err_code;
+                }
+                unplaced_row_letters[char_index] = 1;
+            }
+        }
+    }
+
+    // Validate there are no duplicates in the unused characters
+    for (int i = 0; i < unused_length; i++) {
+        current_char = unused[i];
+        if (current_char != '.') {
+            if (unused_letters_count[current_char - 'a']) {
+                logger(ERROR, __func__, "Duplicate letter '%c' found in unused letters",
+                       current_char);
+                err_code = 1;
+                return err_code;
+            }
+            unused_letters_count[current_char - 'a'] = 1;
+        }
     }
 
     logger(INFO, __func__, "Starting solver");
