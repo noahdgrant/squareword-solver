@@ -48,12 +48,12 @@ int get_word_list(char words[MAX_WORD_COUNT][WORD_LENGTH]) {
     int count = 0;
     char line[WORD_LENGTH + 1]; // +1 for \n
 
-    logger(DEBUG, __func__, "Loading words...");
+    logger(DEBUG, "Loading words...");
 
     // Open the file in read mode
     file = fopen("words.txt", "r");
     if (file == NULL) {
-        logger(ERROR, __func__, "Could not open file");
+        logger(ERROR, "Could not open file");
         return 1;
     }
 
@@ -67,7 +67,7 @@ int get_word_list(char words[MAX_WORD_COUNT][WORD_LENGTH]) {
     // Close the file
     fclose(file);
 
-    logger(DEBUG, __func__, "Finished loading words...");
+    logger(DEBUG, "Finished loading words...");
     return 0;
 }
 

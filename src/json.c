@@ -13,7 +13,7 @@ int json_parse(char game_board[GRID_SIZE][GRID_SIZE],
 
     FILE *file = fopen("input.json", "r");
     if (!file) {
-        logger(ERROR, __func__, "Failed to open input.json");
+        logger(ERROR, "Failed to open input.json");
         return 1;
     }
 
@@ -21,7 +21,7 @@ int json_parse(char game_board[GRID_SIZE][GRID_SIZE],
     fread(buffer, sizeof(char), BUFFER_SIZE, file);
     fclose(file);
 
-    logger(DEBUG, __func__, "File contents...\n%s", buffer);
+    logger(DEBUG, "File contents...\n%s", buffer);
 
     // Parsing the game board
     char *ptr = strstr(buffer, "\"game_board\"");
