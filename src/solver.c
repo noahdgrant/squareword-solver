@@ -24,22 +24,48 @@ shared_data_t* m_shared_data;
 unsigned long m_iterations = 0;
 
 // Prints the current state of the solution[][] array
+#include <stdio.h>
+#include <string.h>
+
 static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]) {
+    const int buffer_size = 1024;
+    char buffer[buffer_size];
+    int offset = 0;
+
     logger(DEBUG, __func__, "[%d] Current solution...", getpid());
     for (int row = 0; row < GRID_SIZE; row++) {
         for (int col = 0; col < GRID_SIZE; col++) {
-            fprintf(stderr, "%c", solution[row][col]);
+            offset += snprintf(buffer + offset, buffer_size - offset, "%c", solution[row][col]);
         }
-        fprintf(stderr, " [");
+        offset += snprintf(buffer + offset, buffer_size - offset, " [");
         for (int col = 0; col < GRID_SIZE; col++) {
             if (unplaced[row][col] != '.') {
-                fprintf(stderr, "%c", unplaced[row][col]);
+                offset += snprintf(buffer + offset, buffer_size - offset, "%c", unplaced[row][col]);
             }
         }
-        fprintf(stderr, "]");
-        fprintf(stderr, "\n");
+        offset += snprintf(buffer + offset, buffer_size - offset, "]");
+        offset += snprintf(buffer + offset, buffer_size - offset, "\n");
     }
+    buffer[offset] = '\0';
+    fprintf(stderr, "%s", buffer);
 }
+
+//static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]) {
+//    logger(DEBUG, __func__, "[%d] Current solution...", getpid());
+//    for (int row = 0; row < GRID_SIZE; row++) {
+//        for (int col = 0; col < GRID_SIZE; col++) {
+//            fprintf(stderr, "%c", solution[row][col]);
+//        }
+//        fprintf(stderr, " [");
+//        for (int col = 0; col < GRID_SIZE; col++) {
+//            if (unplaced[row][col] != '.') {
+//                fprintf(stderr, "%c", unplaced[row][col]);
+//            }
+//        }
+//        fprintf(stderr, "]");
+//        fprintf(stderr, "\n");
+//    }
+//}
 
 // Checks if the grid has any empty slots
 static int is_grid_full(char grid[GRID_SIZE][GRID_SIZE]) {
@@ -260,7 +286,7 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
             memcpy(m_shared_data->solutions[m_shared_data->solution_count],
                    solution, sizeof(m_shared_data->solutions[0]));
             logger(INFO, __func__, "[%d] Solution found (%d)...", getpid(),
-                   m_shared_data->solution_count);
+                   m_shared_data->solution_count + 1);
             print_current_solution(solution, unplaced);
         } else {
             logger(WARNING, __func__, "[%d] Found more than %d possible solutions - %d",
@@ -283,14 +309,18 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
             place_word(solution, words[index], row);
             if (validate_columns(solution, words, word_count)) {
                 if (logger_get_level() == DEBUG) {
+                    pthread_mutex_lock(&m_shared_data->mutex);
                     print_current_solution(solution, unplaced);
+                    pthread_mutex_unlock(&m_shared_data->mutex);
                 }
                 // For all rows after the first row, check all words
                 solve(board, unplaced, solution, words, word_count, 0, word_count, row + 1);
             }
             remove_word(board, solution, row);
             if (logger_get_level() == DEBUG) {
+                pthread_mutex_lock(&m_shared_data->mutex);
                 print_current_solution(solution, unplaced);
+                pthread_mutex_unlock(&m_shared_data->mutex);
             }
         }
     }
