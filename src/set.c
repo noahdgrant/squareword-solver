@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "logger.h"
 #include "set.h"
 
 // Initialize the set
@@ -53,6 +54,7 @@ bool is_string_in_set(Set *set, const char *string_element) {
 
 // Add a character to the set
 void add_char_to_set(Set *set, char char_element) {
+    logger(DEBUG, "Adding '%c' to set", char_element);
     if (set->type == CHAR_TYPE && !is_char_in_set(set, char_element) && set->size < SET_MAX_ELEMENTS) {
         set->elements[set->size++].char_element = char_element;
     }
@@ -60,7 +62,8 @@ void add_char_to_set(Set *set, char char_element) {
 
 // Add a string to the set
 void add_string_to_set(Set *set, const char *string_element) {
+    logger(DEBUG, "Adding '%s' to set", string_element);
     if (set->type == STRING_TYPE && !is_string_in_set(set, string_element) && set->size < SET_MAX_ELEMENTS) {
-        strncpy(set->elements[set->size].string_element, string_element, MAX_STRING_LENGTH);
+        strncpy(set->elements[set->size++].string_element, string_element, MAX_STRING_LENGTH);
     }
 }

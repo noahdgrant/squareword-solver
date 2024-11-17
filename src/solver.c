@@ -317,29 +317,25 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
 }
 
 static void generate_combinations(List columns[GRID_SIZE], int column_max,
-                                  char *prefix, int depth,
-                                  char result[MAX_CHARACTER_COMBINATIONS][GRID_SIZE],
-                                  int *index) {
+                                  char *prefix, int depth, Set *result) {
     if (depth == GRID_SIZE) {
-        strncpy(result[*index], prefix, WORD_LENGTH);
-        (*index)++;
+        set_add(result, prefix);
         return;
     }
 
     for (int i = 0; i < column_max; i++) {
         char new_prefix[WORD_LENGTH];
         snprintf(new_prefix, WORD_LENGTH, "%s%c", prefix, columns[depth].elements[i]);
-        generate_combinations(columns, column_max, new_prefix, depth + 1, result, index);
+        logger(DEBUG, "Current prefix: %s", prefix);
+        generate_combinations(columns, column_max, new_prefix, depth + 1, result);
     }
 }
 
 static void find_minimum_solution(char board[GRID_SIZE][GRID_SIZE],
                            char solution[GRID_SIZE][GRID_SIZE],
                            char words[MAX_WORD_COUNT][WORD_LENGTH]) {
-    if (logger_get_level() == DEBUG) {
-        logger(DEBUG, "The letters needed in the solution are...");
-        print_missing_letters(board, solution);
-    }
+    logger(INFO, "The letters needed in the solution are...");
+    print_missing_letters(board, solution);
 
     // Create missing letter column sets
     Set column_sets[GRID_SIZE] = {0};
@@ -355,6 +351,12 @@ static void find_minimum_solution(char board[GRID_SIZE][GRID_SIZE],
         }
     }
 
+    logger(INFO, "Column sets...");
+    for (int i = 0; i < GRID_SIZE; i++) {
+        set_print(&column_sets[i]);
+    }
+
+    // Find longest set
     int max_set_length = 0;
     for (int j = 0; j < GRID_SIZE; j++) {
         if (column_sets[j].size > max_set_length) {
@@ -378,28 +380,19 @@ static void find_minimum_solution(char board[GRID_SIZE][GRID_SIZE],
         }
     }
 
-    for (int i = 0; i < GRID_SIZE; i++) {
-        set_print(&column_sets[i]);
-    }
-
+    logger(INFO, "Padded column lists...");
     for (int i = 0; i < GRID_SIZE; i++) {
         list_print(&column_lists[i]);
     }
 
-//    // Find all possible letter combinations and check if they are valid words
-//    char all_combinations[MAX_CHARACTER_COMBINATIONS][GRID_SIZE];
-//    int combinations_count = 0;
-//    generate_combinations(column_lists, max_set_length, "", 0, all_combinations,
-//                          &combinations_count);
-//
-//    logger(INFO, "Total combinations: %d", combinations_count);
-//    for (int i = 0; i < combinations_count; i++) {
-//        for (int j = 0; j < GRID_SIZE; j++) {
-//            fprintf(stderr, "%c", all_combinations[i][j]);
-//        }
-//        fprintf(stderr, "\n");
-//    }
-//
+    // Find all possible letter combinations and check if they are valid words
+    Set all_combinations;
+    set_init(&all_combinations, STRING_TYPE);
+    generate_combinations(column_lists, max_set_length, "", 0, &all_combinations);
+
+    logger(INFO, "Total combinations: %d", all_combinations.size);
+    set_print(&all_combinations);
+
 }
 
 // Function to solve the squareword

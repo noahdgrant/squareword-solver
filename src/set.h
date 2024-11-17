@@ -6,7 +6,7 @@
 
 #include "solver.h"
 
-#define SET_MAX_ELEMENTS GRID_SIZE
+#define SET_MAX_ELEMENTS MAX_CHARACTER_COMBINATIONS
 #define MAX_STRING_LENGTH WORD_LENGTH
 
 typedef enum {
@@ -16,7 +16,7 @@ typedef enum {
 
 typedef union {
     char char_element;
-    char* string_element;
+    char string_element[WORD_LENGTH];
 } Element;
 
 typedef struct {
@@ -27,12 +27,12 @@ typedef struct {
 
 #define set_add(set, T) _Generic((T), \
     char: add_char_to_set, \
-    const char*: add_string_to_set \
+    char*: add_string_to_set \
 )(set, T)
 
 #define is_in_set(set, T) _Generic((T), \
     char: is_char_in_set, \
-    const char*: is_string_in_set \
+    char*: is_string_in_set \
 )(set, T)
 
 void set_init(Set *set, ElementType type);
