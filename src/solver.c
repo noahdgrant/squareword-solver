@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -331,6 +332,36 @@ static void generate_combinations(List columns[GRID_SIZE], int column_max,
     }
 }
 
+// Function to check if a word matches a pattern
+bool matches_pattern(const char *word, const char *pattern) {
+    for (int i = 0; pattern[i] != '\0'; i++) {
+        if (pattern[i] != '.' && pattern[i] != word[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Function to find matching words
+void find_matching_words(char word_list[MAX_WORD_COUNT][WORD_LENGTH], int word_count,
+                         Set *patterns, Set *result) {
+    bool found = false;
+    for (int i = 0; i < patterns->size; i++) {
+        logger(DEBUG, "Pattern: %s", patterns->elements[i].string_element);
+        found = false;
+        for (int j = 0; j < word_count; j++) {
+            if (matches_pattern(word_list[j], patterns->elements[i].string_element)) {
+                logger(DEBUG, "Match: %s", word_list[j]);
+                set_add(result, word_list[j]);
+                found = true;
+            }
+        }
+        if (!found) {
+            logger(DEBUG, "No matches found");
+        }
+    }
+}
+
 static void find_minimum_solution(char board[GRID_SIZE][GRID_SIZE],
                            char solution[GRID_SIZE][GRID_SIZE],
                            char words[MAX_WORD_COUNT][WORD_LENGTH]) {
@@ -392,6 +423,13 @@ static void find_minimum_solution(char board[GRID_SIZE][GRID_SIZE],
 
     logger(INFO, "Total combinations: %d", all_combinations.size);
     set_print(&all_combinations);
+
+    // Find set of all words from all combinations
+    Set all_words;
+    set_init(&all_words, STRING_TYPE);
+    find_matching_words(words, MAX_WORD_COUNT, &all_combinations, &all_words);
+    logger(INFO, "Total words: %d", all_words.size);
+    set_print(&all_words);
 
 }
 
