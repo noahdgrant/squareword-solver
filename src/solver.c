@@ -333,7 +333,7 @@ static void generate_combinations(List columns[GRID_SIZE], int column_max,
 }
 
 // Function to check if a word matches a pattern
-bool matches_pattern(const char *word, const char *pattern) {
+static bool matches_pattern(const char *word, const char *pattern) {
     for (int i = 0; pattern[i] != '\0'; i++) {
         if (pattern[i] != '.' && pattern[i] != word[i]) {
             return false;
@@ -343,7 +343,7 @@ bool matches_pattern(const char *word, const char *pattern) {
 }
 
 // Function to find matching words
-void find_matching_words(char word_list[MAX_WORD_COUNT][WORD_LENGTH], int word_count,
+static void find_matching_words(char word_list[MAX_WORD_COUNT][WORD_LENGTH], int word_count,
                          Set *patterns, Set *result) {
     bool found = false;
     for (int i = 0; i < patterns->size; i++) {
@@ -360,6 +360,52 @@ void find_matching_words(char word_list[MAX_WORD_COUNT][WORD_LENGTH], int word_c
             logger(DEBUG, "No matches found");
         }
     }
+}
+
+static bool is_combination_valid(Set column_sets[GRID_SIZE], char words[GRID_SIZE][WORD_LENGTH],
+                                 int word_count) {
+    Set test_set[GRID_SIZE];
+    // Copy needed letters to a test set
+    for (int i = 0; i < GRID_SIZE; i++) {
+        set_init(&test_set[i], CHAR_TYPE);
+        for (int j = 0; j < column_sets[i].size; j++) {
+            set_add(&test_set[i], column_sets[i].elements[j].char_element);
+        }
+    }
+    
+    // Remove letters from set that are in the words
+    for (int i = 0; i < word_count; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            set_remove(&test_set[j], words[i][j]);
+        }
+    }
+
+    // Check if all letters are used
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (test_set[i].size != 0) {
+            return false; // Word combination doesn't use all letters
+        }
+    }
+
+    return true; // Word combination uses all letters
+}
+
+static bool find_combination(Set column_sets[GRID_SIZE], Set *possible_words,
+                             char combination[GRID_SIZE][WORD_LENGTH], 
+                             int depth, int max_depth) {
+    if (depth == max_depth) {
+        bool result = is_combination_valid(column_sets, combination, max_depth);
+        return result;
+    }
+
+    for (int i = 0; i < possible_words->size; i++) {
+        strncpy(combination[depth], possible_words->elements[i].string_element, WORD_LENGTH);
+        if (find_combination(column_sets, possible_words, combination, depth + 1, max_depth)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static void find_minimum_solution(char board[GRID_SIZE][GRID_SIZE],
@@ -411,26 +457,28 @@ static void find_minimum_solution(char board[GRID_SIZE][GRID_SIZE],
         }
     }
 
-    logger(INFO, "Padded column lists...");
-    for (int i = 0; i < GRID_SIZE; i++) {
-        list_print(&column_lists[i]);
-    }
-
     // Find all possible letter combinations and check if they are valid words
     Set all_combinations;
     set_init(&all_combinations, STRING_TYPE);
     generate_combinations(column_lists, max_set_length, "", 0, &all_combinations);
 
     logger(INFO, "Total combinations: %d", all_combinations.size);
-    set_print(&all_combinations);
 
     // Find set of all words from all combinations
     Set all_words;
     set_init(&all_words, STRING_TYPE);
     find_matching_words(words, MAX_WORD_COUNT, &all_combinations, &all_words);
     logger(INFO, "Total words: %d", all_words.size);
-    set_print(&all_words);
 
+    char minimum_combination[GRID_SIZE][WORD_LENGTH] = {0};
+    bool result = find_combination(column_sets, &all_words, minimum_combination, 0, max_set_length);
+    logger(INFO, "Found mininum: %d", result);
+    for (int i = 0; i < max_set_length; i ++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            fprintf(stderr, "%c", minimum_combination[i][j]);
+        }
+        fprintf(stderr, "\n");
+    }
 }
 
 // Function to solve the squareword
