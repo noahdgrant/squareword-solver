@@ -6,7 +6,7 @@
 
 #include "solver.h"
 
-#define SET_MAX_ELEMENTS MAX_CHARACTER_COMBINATIONS
+#define SET_MAX_ELEMENTS MAX_WORD_COUNT
 #define MAX_STRING_LENGTH WORD_LENGTH
 
 typedef enum {

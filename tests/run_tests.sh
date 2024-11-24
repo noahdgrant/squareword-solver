@@ -15,7 +15,7 @@ echo "Running tests..."
 # Compile and run each test file
 for test_file in $TEST_DIR/*.c; do
     test_name=$(basename $test_file .c)
-    gcc -g -Wall -o bin/$test_name $test_file src/solver.c src/logger.c -I src
+    gcc -g -Wall -o bin/$test_name $test_file src/solver.c src/logger.c src/set.c src/list.c -I src
     if [ $? -eq 0 ]; then
         echo "Running $test_name..."
         ./bin/$test_name
