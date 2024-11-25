@@ -24,4 +24,4 @@ jobs:
     - name: Setup
       run: ./setup.sh
     - name: Run tests
-      run: make test
+      run: make tests
