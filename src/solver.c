@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,8 @@
 #include <unistd.h>
 
 #include "logger.h"
+#include "list.h"
+#include "set.h"
 #include "solver.h"
 
 typedef struct {
@@ -17,14 +20,18 @@ typedef struct {
     char solutions[MAX_SOLUTION_COUNT][GRID_SIZE][GRID_SIZE];
     unsigned long iterations;
     int next_word_index;
+    int next_combination_index;
+    bool minimum_solution_found;
     pthread_mutex_t mutex;
 } shared_data_t;
 shared_data_t* m_shared_data;
 
 unsigned long m_iterations = 0;
+int m_combinations = 0;
 
 // Prints the current state of the solution[][] array
-static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]) {
+static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE],
+                                   char unplaced[GRID_SIZE][GRID_SIZE]) {
     logger(DEBUG, "[%d] Current solution...", getpid());
     for (int row = 0; row < GRID_SIZE; row++) {
         for (int col = 0; col < GRID_SIZE; col++) {
@@ -39,6 +46,32 @@ static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE], char unp
         fprintf(stderr, "]");
         fprintf(stderr, "\n");
     }
+}
+
+// Prints the missing letters from the solution
+static void print_missing_letters(char board[GRID_SIZE][GRID_SIZE],
+                                  char solution[GRID_SIZE][GRID_SIZE]) {
+    for (int row = 0; row < GRID_SIZE; row++) {
+        for (int col = 0; col < GRID_SIZE; col++) {
+            if (board[row][col] == '.') {
+                fprintf(stderr, "%c", solution[row][col]);
+            } else {
+                fprintf(stderr, ".");
+            }
+        }
+        fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "\n");
+}
+
+static void print_grid(char grid[GRID_SIZE][GRID_SIZE]) {
+    for (int i = 0; i < GRID_SIZE; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            fprintf(stderr, "%c", grid[i][j]);
+        }
+        fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "\n");
 }
 
 // Checks if the grid has any empty slots
@@ -260,7 +293,7 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
             memcpy(m_shared_data->solutions[m_shared_data->solution_count],
                    solution, sizeof(m_shared_data->solutions[0]));
             logger(INFO, "[%d] Solution found (%d)...", getpid(),
-                   m_shared_data->solution_count);
+                   m_shared_data->solution_count + 1);
             print_current_solution(solution, unplaced);
         } else {
             logger(WARNING, "[%d] Found more than %d possible solutions - %d",
@@ -424,36 +457,20 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
         }
     }
 
-    logger(INFO, "Unused letter(s) (%d): %s", unused_length, unused);
+    if (unused_length == 1 && unused[0] == '.') {
+        logger(INFO, "No unused letters");
+    } else {
+        logger(INFO, "Unused letter(s) (%d): %s", unused_length, unused);
+    }
 
     // Copy beginning board state to solution
     memcpy(solution, board, GRID_SIZE * GRID_SIZE * sizeof(char));
 
     logger(INFO, "Starting board...");
-    print_current_solution(solution, unplaced);
-
-    // Setup shared memory
-    m_shared_data = mmap(NULL, sizeof(shared_data_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (m_shared_data == MAP_FAILED) {
-        logger(ERROR, "Failed to setup shared memory");
-        err_code = 1;
-        return err_code;
-    }
-
-    m_shared_data->solution_count = 0;
-    m_shared_data->iterations = 0;
-    m_shared_data->next_word_index = 0;
-    pthread_mutexattr_t mutex_attr;
-    pthread_mutexattr_init(&mutex_attr);
-    pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
-    if (pthread_mutex_init(&m_shared_data->mutex, &mutex_attr) != 0) {
-        logger(ERROR, "Failed to initialize the mutex"); 
-        err_code = 1;
-        return err_code; 
-    }
+    print_current_solution(board, unplaced);
 
     gettimeofday(&start, NULL);
-    // Split up word list for each process
+
     for (int i = 0; i < NUM_PROCESSES; i++) {
         pids[i] = fork();
         if (pids[i] < 0) {
@@ -518,6 +535,7 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
         logger(INFO, "Found %d solution(s)...", m_shared_data->solution_count);
     }
 
+    // Print solutions
     for (int i = 0; i < m_shared_data->solution_count; i++) {
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
@@ -525,14 +543,413 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
             }
             fprintf(stderr, "\n");
         }
-            fprintf(stderr, "\n");
+        fprintf(stderr, "\n");
     }
     pthread_mutex_unlock(&m_shared_data->mutex);
 
-    // Clean up
+    logger(INFO, "Done");
+
+    return err_code;
+}
+
+void get_columns(char board[GRID_SIZE][GRID_SIZE],
+                 char solution[GRID_SIZE][GRID_SIZE],
+                 char columns[GRID_SIZE][GRID_SIZE]) {
+    for (int row = 0; row < GRID_SIZE; row++) {
+        for (int col = 0; col < GRID_SIZE; col++) {
+            if (board[row][col] == '.') {
+                columns[col][row] = solution[row][col];
+            } else {
+                columns[col][row] = '.';
+            }
+        }
+    }
+}
+
+int find_minimum_solutions(char board[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH]) {
+    logger(INFO, "Finding minium number of words needed for each solution...");
+    for (int i = 0; i < m_shared_data->solution_count; i++) {
+        logger(INFO, "Trying to find minimum solution for #%d", i + 1);
+
+        char columns[GRID_SIZE][GRID_SIZE] = {0};
+
+        logger(INFO, "The letters needed in the solution are...");
+        print_missing_letters(board, m_shared_data->solutions[i]);
+
+        get_columns(board, m_shared_data->solutions[i], columns);
+        if (logger_get_level() == DEBUG) {
+            logger(DEBUG, "Columns...");
+            print_grid(columns);
+        }
+
+        find_minimum_solution(columns, words);
+    }
+
+    logger(INFO, "Done");
+
+    return 0;
+}
+
+// Setup shared memory and mutex
+int setup() {
+    int err_code = 0;
+
+    // Setup shared memory
+    m_shared_data = mmap(NULL, sizeof(shared_data_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (m_shared_data == MAP_FAILED) {
+        logger(ERROR, "Failed to setup shared memory");
+        err_code = 1;
+        return err_code;
+    }
+
+    m_shared_data->solution_count = 0;
+    m_shared_data->iterations = 0;
+    m_shared_data->next_word_index = 0;
+    m_shared_data->next_combination_index = 0;
+    m_shared_data->minimum_solution_found = false;
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutexattr_init(&mutex_attr);
+    pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
+    if (pthread_mutex_init(&m_shared_data->mutex, &mutex_attr) != 0) {
+        logger(ERROR, "Failed to initialize the mutex"); 
+        err_code = 1;
+        return err_code; 
+    }
+
+    return err_code;
+}
+
+// Clean up shared memory and mutex
+void cleanup() {
     pthread_mutex_destroy(&m_shared_data->mutex); 
     munmap(m_shared_data, sizeof(shared_data_t));
+}
 
-    logger(INFO, "Finished solver");
+
+static void generate_combinations(List columns[GRID_SIZE], int column_max,
+                                  char *prefix, int depth, Set *result) {
+    if (depth == GRID_SIZE) {
+        set_add(result, prefix);
+        return;
+    }
+
+    for (int i = 0; i < column_max; i++) {
+        char new_prefix[WORD_LENGTH];
+        snprintf(new_prefix, WORD_LENGTH, "%s%c", prefix, columns[depth].elements[i]);
+        logger(DEBUG, "Current prefix: %s", prefix);
+        generate_combinations(columns, column_max, new_prefix, depth + 1, result);
+    }
+}
+
+// Function to check if a word matches a pattern
+static bool matches_pattern(const char *word, const char *pattern) {
+    for (int i = 0; pattern[i] != '\0'; i++) {
+        if (pattern[i] != '.' && pattern[i] != word[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Function to find matching words
+static void find_matching_words(char word_list[MAX_WORD_COUNT][WORD_LENGTH], int word_count,
+                         Set *patterns, Set *result) {
+    bool found = false;
+    for (int i = 0; i < patterns->size; i++) {
+        logger(DEBUG, "Pattern: %s", patterns->elements[i].string_element);
+        found = false;
+        for (int j = 0; j < word_count; j++) {
+            if (matches_pattern(word_list[j], patterns->elements[i].string_element)) {
+                logger(DEBUG, "Match: %s", word_list[j]);
+                set_add(result, word_list[j]);
+                found = true;
+            }
+        }
+        if (!found) {
+            logger(DEBUG, "No matches found");
+        }
+    }
+}
+
+static bool is_combination_valid(Set column_sets[GRID_SIZE], char words[GRID_SIZE][WORD_LENGTH],
+                                 int word_count) {
+    Set test_set[GRID_SIZE];
+    // Copy needed letters to a test set
+    for (int i = 0; i < GRID_SIZE; i++) {
+        set_init(&test_set[i], CHAR_TYPE);
+        for (int j = 0; j < column_sets[i].size; j++) {
+            set_add(&test_set[i], column_sets[i].elements[j].char_element);
+        }
+    }
+    
+    // Remove letters from set that are in the words
+    for (int i = 0; i < word_count; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            set_remove(&test_set[j], words[i][j]);
+        }
+    }
+
+    // Check if all letters are used
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (test_set[i].size != 0) {
+            return false; // Word combination doesn't use all letters
+        }
+    }
+
+    return true; // Word combination uses all letters
+}
+
+static bool find_combination(Set column_sets[GRID_SIZE], Set *possible_words,
+                             char combination[GRID_SIZE][WORD_LENGTH], 
+                             int depth, int max_depth, int start_index, int end_index) {
+    if (depth == max_depth) {
+        bool result = is_combination_valid(column_sets, combination, max_depth);
+        return result;
+    }
+
+    for (int i = start_index; i < end_index; i++) {
+        strncpy(combination[depth], possible_words->elements[i].string_element, WORD_LENGTH);
+        if (find_combination(column_sets, possible_words, combination, depth + 1, max_depth,
+                             0, possible_words->size)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+// Function to check if word1 can replace word2
+bool is_redundant(const char *word1, const char *word2, char columns[GRID_SIZE][GRID_SIZE]) {
+    bool result = true;
+    char word1_matches[GRID_SIZE] = {0};
+    char common[GRID_SIZE] = {0};
+    bool match = false;
+
+    // word 1 letters in column letters
+    for (int i = 0; i < GRID_SIZE; i++) {
+        match = false;
+        for (int j = 0; j < GRID_SIZE; j++) {
+            if (columns[i][j] != '.') {
+                if (word1[i] == columns[i][j]) {
+                    match = true;
+                    break;
+                }
+            }  
+        }
+        if (match) {
+            word1_matches[i] = '1';
+        } else {
+            word1_matches[i] = '0';
+        }
+    }
+
+    // letters that are the same in both words
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (word1[i] == word2[i]) {
+            common[i] = '1';
+        } else {
+            common[i] = '0';
+        }
+    }
+
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (common[i] == '0') {
+            if (word1_matches[i] == '1') {
+                logger(DEBUG, "%s not redundant (%s)", word1, word2);
+                result = false;
+                break;
+            }
+        }
+    }
+    
+    if (result) {
+        logger(DEBUG, "%s is redundant (%s)", word1, word2);
+    }
+
+    return result;
+}
+
+bool is_same_word(char *word1, char *word2) {
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (word1[i] != word2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Function to filter redundant words
+int filter_possible_words(char words[MAX_WORD_COUNT][WORD_LENGTH], int word_count,
+                          char columns[GRID_SIZE][GRID_SIZE],
+                          char filtered_words[MAX_WORD_COUNT][WORD_LENGTH]) {
+    int filtered_count = 0;
+    bool redundant[MAX_WORD_COUNT] = {false};
+
+    for (int i = 0; i < word_count; i++) {
+        if (redundant[i]) {
+            continue;
+        }
+        for (int j = 0; j < word_count; j++) {
+            if (redundant[j]) {
+                continue;
+            }
+            if (is_same_word(words[i], words[j])) {
+                continue;
+            }
+            if (is_redundant(words[i], words[j], columns)) {
+                redundant[i] = true;
+                break;
+            }
+        }
+        if (redundant[i] == false) {
+            strcpy(filtered_words[filtered_count++], words[i]);
+        }
+    }
+
+    return filtered_count;
+}
+
+int find_minimum_solution(char columns[GRID_SIZE][GRID_SIZE],
+                      char words[MAX_WORD_COUNT][WORD_LENGTH]) {
+    int err_code = 0;
+    bool result = false;
+
+    // Force everything lowercase
+    for (int i = 0; i < MAX_WORD_COUNT; i++) {
+        for (int j = 0; j < WORD_LENGTH; j++) {
+            words[i][j] = tolower(words[i][j]);
+        }
+    }
+
+    for (int i = 0; i < GRID_SIZE; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            columns[i][j] = tolower(columns[i][j]);
+        }
+    }
+
+    // Create missing letter column sets
+    Set column_sets[GRID_SIZE] = {0};
+    for (int i = 0; i < GRID_SIZE; i++) {
+        set_init(&column_sets[i], CHAR_TYPE);
+    }
+
+    for (int row = 0; row < GRID_SIZE; row++) {
+        for (int col = 0; col < GRID_SIZE; col++) {
+            if (columns[row][col] != '.') {
+                set_add(&column_sets[row], columns[row][col]);
+            }
+        }
+    }
+
+    if (logger_get_level() == DEBUG) {
+        logger(DEBUG, "Column sets...");
+        for (int i = 0; i < GRID_SIZE; i++) {
+            set_print(&column_sets[i]);
+        }
+    }
+
+    // Find longest set
+    int max_set_length = 0;
+    for (int j = 0; j < GRID_SIZE; j++) {
+        if (column_sets[j].size > max_set_length) {
+            max_set_length = column_sets[j].size;
+        }
+    }
+    if (max_set_length == GRID_SIZE) {
+        logger(INFO, "No minimum solution possible for given board state");
+        err_code = 1;
+        return err_code;
+    }
+    logger(INFO, "Theoretical minimum number of words to solve: %d", max_set_length);
+
+    // Create column lists
+    List column_lists[GRID_SIZE] = {0};
+    for (int row = 0; row < GRID_SIZE; row++) {
+        for (int col = 0; col < column_sets[row].size; col++) {
+            list_add(&column_lists[row], column_sets[row].elements[col].char_element);
+        }
+    }
+
+    // Pad lists so they are all the same length
+    for (int i = 0; i < GRID_SIZE; i++) {
+        while (column_lists[i].size < max_set_length) {
+            list_add(&column_lists[i], '.');
+        }
+    }
+
+    // Find all possible letter combinations and check if they are valid words
+    Set all_combinations;
+    set_init(&all_combinations, STRING_TYPE);
+    generate_combinations(column_lists, max_set_length, "", 0, &all_combinations);
+    logger(INFO, "Total letter combinations: %d", all_combinations.size);
+    if(logger_get_level() == DEBUG) {
+        logger(DEBUG, "All letter combinations...");
+        set_print(&all_combinations);
+    }
+
+    // Find set of all words from all combinations
+    Set all_words;
+    set_init(&all_words, STRING_TYPE);
+    find_matching_words(words, MAX_WORD_COUNT, &all_combinations, &all_words);
+    logger(INFO, "Total words: %d", all_words.size);
+    if(logger_get_level() == DEBUG) {
+        logger(DEBUG, "All words...");
+        set_print(&all_words);
+    }
+
+    // Filter redundant words
+    int filtered_count = 0;
+    char filtered[MAX_WORD_COUNT][WORD_LENGTH] = {0};
+
+    // Copy to array since I can't seem to pass the Set.elements to the char[][]
+    char strings[SET_MAX_ELEMENTS][MAX_STRING_LENGTH];
+    for (int i = 0; i < all_words.size; i++) {
+        strncpy(strings[i], all_words.elements[i].string_element, MAX_STRING_LENGTH);
+    }
+
+    filtered_count = filter_possible_words(strings, all_words.size, columns, filtered);
+    Set filtered_words;
+    set_init(&filtered_words, STRING_TYPE);
+    for (int i = 0; i < filtered_count; i++) {
+        set_add(&filtered_words, filtered[i]);
+    }
+    logger(INFO, "Filtered word count: %d", filtered_words.size);
+    if (logger_get_level() == DEBUG) {
+        logger(DEBUG, "Filtered words...");
+        set_print(&filtered_words);
+    }
+
+    struct timeval start, end;
+    int hours, minutes, seconds;
+    double elapsed_time;
+
+    gettimeofday(&start, NULL);
+
+    char minimum_combination[GRID_SIZE][WORD_LENGTH] = {0};
+    result = find_combination(column_sets, &filtered_words,
+                              minimum_combination, 0, max_set_length,
+                              0, filtered_count);
+    if (result) {
+        logger(INFO, "Minimum solutions found...");
+        for (int i = 0; i < max_set_length; i ++) {
+            for (int j = 0; j < GRID_SIZE; j++) {
+                fprintf(stderr, "%c", minimum_combination[i][j]);
+            }
+            fprintf(stderr, "\n");
+        }
+    } else {
+        logger(INFO, "No minimum solution found");
+    }
+
+    gettimeofday(&end, NULL);
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    hours = (int) (elapsed_time / 3600);
+    minutes = (int) ((elapsed_time - (hours * 3600)) / 60);
+    seconds = (int) (elapsed_time - (hours * 3600) - (minutes * 60));
+    logger(INFO, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
+
+    logger(INFO, "Done");
+
     return err_code;
 }
