@@ -1,6 +1,5 @@
 #include <ctype.h>
 #include <pthread.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,6 +48,7 @@ static void print_current_solution(char solution[GRID_SIZE][GRID_SIZE],
     }
 }
 
+// Prints the missing letters from the solution
 static void print_missing_letters(char board[GRID_SIZE][GRID_SIZE],
                                   char solution[GRID_SIZE][GRID_SIZE]) {
     for (int row = 0; row < GRID_SIZE; row++) {
@@ -61,6 +61,17 @@ static void print_missing_letters(char board[GRID_SIZE][GRID_SIZE],
         }
         fprintf(stderr, "\n");
     }
+    fprintf(stderr, "\n");
+}
+
+static void print_grid(char grid[GRID_SIZE][GRID_SIZE]) {
+    for (int i = 0; i < GRID_SIZE; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            fprintf(stderr, "%c", grid[i][j]);
+        }
+        fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "\n");
 }
 
 // Checks if the grid has any empty slots
@@ -320,260 +331,6 @@ static void solve(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRI
     return;
 }
 
-static void generate_combinations(List columns[GRID_SIZE], int column_max,
-                                  char *prefix, int depth, Set *result) {
-    if (depth == GRID_SIZE) {
-        set_add(result, prefix);
-        return;
-    }
-
-    for (int i = 0; i < column_max; i++) {
-        char new_prefix[WORD_LENGTH];
-        snprintf(new_prefix, WORD_LENGTH, "%s%c", prefix, columns[depth].elements[i]);
-        logger(DEBUG, "Current prefix: %s", prefix);
-        generate_combinations(columns, column_max, new_prefix, depth + 1, result);
-    }
-}
-
-// Function to check if a word matches a pattern
-static bool matches_pattern(const char *word, const char *pattern) {
-    for (int i = 0; pattern[i] != '\0'; i++) {
-        if (pattern[i] != '.' && pattern[i] != word[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-// Function to find matching words
-static void find_matching_words(char word_list[MAX_WORD_COUNT][WORD_LENGTH], int word_count,
-                         Set *patterns, Set *result) {
-    bool found = false;
-    for (int i = 0; i < patterns->size; i++) {
-        logger(DEBUG, "Pattern: %s", patterns->elements[i].string_element);
-        found = false;
-        for (int j = 0; j < word_count; j++) {
-            if (matches_pattern(word_list[j], patterns->elements[i].string_element)) {
-                logger(DEBUG, "Match: %s", word_list[j]);
-                set_add(result, word_list[j]);
-                found = true;
-            }
-        }
-        if (!found) {
-            logger(DEBUG, "No matches found");
-        }
-    }
-}
-
-static bool is_combination_valid(Set column_sets[GRID_SIZE], char words[GRID_SIZE][WORD_LENGTH],
-                                 int word_count) {
-    Set test_set[GRID_SIZE];
-    // Copy needed letters to a test set
-    for (int i = 0; i < GRID_SIZE; i++) {
-        set_init(&test_set[i], CHAR_TYPE);
-        for (int j = 0; j < column_sets[i].size; j++) {
-            set_add(&test_set[i], column_sets[i].elements[j].char_element);
-        }
-    }
-    
-    // Remove letters from set that are in the words
-    for (int i = 0; i < word_count; i++) {
-        for (int j = 0; j < GRID_SIZE; j++) {
-            set_remove(&test_set[j], words[i][j]);
-        }
-    }
-
-    // Check if all letters are used
-    for (int i = 0; i < GRID_SIZE; i++) {
-        if (test_set[i].size != 0) {
-            return false; // Word combination doesn't use all letters
-        }
-    }
-
-    return true; // Word combination uses all letters
-}
-
-static bool find_combination(Set column_sets[GRID_SIZE], Set *possible_words,
-                             char combination[GRID_SIZE][WORD_LENGTH], 
-                             int depth, int max_depth, int start_index, int end_index) {
-    if (depth == max_depth) {
-        bool result = is_combination_valid(column_sets, combination, max_depth);
-        return result;
-    }
-
-    for (int i = start_index; i < end_index; i++) {
-        strncpy(combination[depth], possible_words->elements[i].string_element, WORD_LENGTH);
-        if (find_combination(column_sets, possible_words, combination, depth + 1, max_depth,
-                             0, possible_words->size)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-void sigterm_handler(int signum) {
-    exit(0);
-}
-
-void terminate_processes(pid_t pids[]) {
-    logger(DEBUG, "[%d] Sending SIGTERM to processes", getpid());
-
-    // Ensure only one process can terminate the other processes
-    pthread_mutex_lock(&m_shared_data->mutex);
-    for (int i = 0; i < NUM_PROCESSES; i++) {
-        if (pids[i] > 0 && pids[i] != getpid()) {
-            logger(DEBUG, "[%d] Sending SIGTERM to %d", getpid(), pids[i]);
-            kill(pids[i], SIGTERM);
-        }
-    }
-    pthread_mutex_unlock(&m_shared_data->mutex);
-    logger(DEBUG, "[%d] Finished sending SIGTERM signals", getpid());
-}
-
-static int find_minimum_solution(char board[GRID_SIZE][GRID_SIZE],
-                                 char solution[GRID_SIZE][GRID_SIZE],
-                                 char words[MAX_WORD_COUNT][WORD_LENGTH],
-                                 int solution_number) {
-    pid_t pids[NUM_PROCESSES];
-    int err_code = 0;
-    int current_combination_index = 0;
-    bool result = false;
-
-    pthread_mutex_lock(&m_shared_data->mutex);
-    m_shared_data->minimum_solution_found = false;
-    pthread_mutex_unlock(&m_shared_data->mutex);
-
-    // Set up signal handler for SIGTERM
-    signal(SIGTERM, sigterm_handler);
-
-    logger(INFO, "The letters needed in the solution are...");
-    print_missing_letters(board, solution);
-
-    // Create missing letter column sets
-    Set column_sets[GRID_SIZE] = {0};
-    for (int i = 0; i < GRID_SIZE; i++) {
-        set_init(&column_sets[i], CHAR_TYPE);
-    }
-
-    for (int row = 0; row < GRID_SIZE; row++) {
-        for (int col = 0; col < GRID_SIZE; col++) {
-            if (board[row][col] == '.') {
-                set_add(&column_sets[col], solution[row][col]);
-            }
-        }
-    }
-
-    if (logger_get_level() == DEBUG) {
-        logger(DEBUG, "Column sets...");
-        for (int i = 0; i < GRID_SIZE; i++) {
-            set_print(&column_sets[i]);
-        }
-    }
-
-    // Find longest set
-    int max_set_length = 0;
-    for (int j = 0; j < GRID_SIZE; j++) {
-        if (column_sets[j].size > max_set_length) {
-            max_set_length = column_sets[j].size;
-        }
-    }
-    if (max_set_length == GRID_SIZE) {
-        logger(INFO, "No minimum solution possible for given board state");
-        return 1;
-    }
-    logger(INFO, "Theoretical minimum number of words to solve: %d", max_set_length);
-
-    // Create column lists
-    List column_lists[GRID_SIZE] = {0};
-    for (int row = 0; row < GRID_SIZE; row++) {
-        for (int col = 0; col < column_sets[row].size; col++) {
-            list_add(&column_lists[row], column_sets[row].elements[col].char_element);
-        }
-    }
-
-    // Pad lists so they are all the same length
-    for (int i = 0; i < GRID_SIZE; i++) {
-        while (column_lists[i].size < max_set_length) {
-            list_add(&column_lists[i], '.');
-        }
-    }
-
-    // Find all possible letter combinations and check if they are valid words
-    Set all_combinations;
-    set_init(&all_combinations, STRING_TYPE);
-    generate_combinations(column_lists, max_set_length, "", 0, &all_combinations);
-
-    logger(INFO, "Total combinations: %d", all_combinations.size);
-
-    // Find set of all words from all combinations
-    Set all_words;
-    set_init(&all_words, STRING_TYPE);
-    find_matching_words(words, MAX_WORD_COUNT, &all_combinations, &all_words);
-    logger(INFO, "Total words: %d", all_words.size);
-
-    for (int i = 0; i < NUM_PROCESSES; i++) {
-        pids[i] = fork();
-        if (pids[i] < 0) {
-            logger(ERROR, "Fork failed");
-            err_code = 1;
-            return err_code;
-        } else if (pids[i] == 0) {
-            // Child process
-            logger(INFO, "[%d] Starting", getpid());
-
-            while (1) {
-                pthread_mutex_lock(&m_shared_data->mutex);
-                current_combination_index = m_shared_data->next_combination_index;
-                m_shared_data->next_combination_index++;
-                pthread_mutex_unlock(&m_shared_data->mutex);
-
-                if (current_combination_index < all_words.size) {
-                    char minimum_combination[GRID_SIZE][WORD_LENGTH] = {0};
-                    result = find_combination(column_sets, &all_words,
-                                                   minimum_combination, 0, max_set_length,
-                                                   current_combination_index,
-                                                   current_combination_index + 1);
-                    if (result) {
-                        logger(INFO, "[%d] Minimum solutions found...", getpid());
-                        for (int i = 0; i < max_set_length; i ++) {
-                            for (int j = 0; j < GRID_SIZE; j++) {
-                                fprintf(stderr, "%c", minimum_combination[i][j]);
-                            }
-                            fprintf(stderr, "\n");
-                        }
-                        terminate_processes(pids);
-                        pthread_mutex_lock(&m_shared_data->mutex);
-                        m_shared_data->minimum_solution_found = true;
-                        pthread_mutex_unlock(&m_shared_data->mutex);
-                        break;
-                    }
-                } else {
-                    // All first row words have been tried
-                    break;
-                }
-                m_combinations++;
-            }
-            exit(0);
-        } else {
-            // Parent process
-        }
-    }
-
-    // Wait for all child processes to finish
-    for (int i = 0; i < NUM_PROCESSES; i++) {
-        waitpid(pids[i], NULL, 0);
-    }
-
-    pthread_mutex_lock(&m_shared_data->mutex);
-    if (m_shared_data->minimum_solution_found == false) {
-        logger(INFO, "No minimum solution found");
-    }
-    pthread_mutex_unlock(&m_shared_data->mutex);
-
-    return err_code;
-}
-
 // Function to solve the squareword
 int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE],
            char unused[], int unused_length, char words[MAX_WORD_COUNT][WORD_LENGTH]) {
@@ -795,44 +552,45 @@ int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE]
     return err_code;
 }
 
-int find_minimum(char board[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH]) {
-    // Force everything lowercase
-    for (int i = 0; i < MAX_WORD_COUNT; i++) {
-        for (int j = 0; j < WORD_LENGTH; j++) {
-            words[i][j] = tolower(words[i][j]);
-        }
-    }
-
+void get_columns(char board[GRID_SIZE][GRID_SIZE],
+                 char solution[GRID_SIZE][GRID_SIZE],
+                 char columns[GRID_SIZE][GRID_SIZE]) {
     for (int row = 0; row < GRID_SIZE; row++) {
         for (int col = 0; col < GRID_SIZE; col++) {
-            board[row][col] = tolower(board[row][col]);
+            if (board[row][col] == '.') {
+                columns[col][row] = solution[row][col];
+            } else {
+                columns[col][row] = '.';
+            }
         }
     }
+}
 
-    struct timeval start, end;
-    int hours, minutes, seconds;
-    double elapsed_time;
-
-    gettimeofday(&start, NULL);
-
+int find_minimum_solutions(char board[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH]) {
     logger(INFO, "Finding minium number of words needed for each solution...");
     for (int i = 0; i < m_shared_data->solution_count; i++) {
         logger(INFO, "Trying to find minimum solution for #%d", i + 1);
-        find_minimum_solution(board, m_shared_data->solutions[i], words, i);
-    }
 
-    gettimeofday(&end, NULL);
-    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-    hours = (int) (elapsed_time / 3600);
-    minutes = (int) ((elapsed_time - (hours * 3600)) / 60);
-    seconds = (int) (elapsed_time - (hours * 3600) - (minutes * 60));
-    logger(INFO, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
+        char columns[GRID_SIZE][GRID_SIZE] = {0};
+
+        logger(INFO, "The letters needed in the solution are...");
+        print_missing_letters(board, m_shared_data->solutions[i]);
+
+        get_columns(board, m_shared_data->solutions[i], columns);
+        if (logger_get_level() == DEBUG) {
+            logger(DEBUG, "Columns...");
+            print_grid(columns);
+        }
+
+        find_minimum_solution(columns, words);
+    }
 
     logger(INFO, "Done");
 
     return 0;
 }
 
+// Setup shared memory and mutex
 int setup() {
     int err_code = 0;
 
@@ -861,10 +619,105 @@ int setup() {
     return err_code;
 }
 
+// Clean up shared memory and mutex
 void cleanup() {
     pthread_mutex_destroy(&m_shared_data->mutex); 
     munmap(m_shared_data, sizeof(shared_data_t));
 }
+
+
+static void generate_combinations(List columns[GRID_SIZE], int column_max,
+                                  char *prefix, int depth, Set *result) {
+    if (depth == GRID_SIZE) {
+        set_add(result, prefix);
+        return;
+    }
+
+    for (int i = 0; i < column_max; i++) {
+        char new_prefix[WORD_LENGTH];
+        snprintf(new_prefix, WORD_LENGTH, "%s%c", prefix, columns[depth].elements[i]);
+        logger(DEBUG, "Current prefix: %s", prefix);
+        generate_combinations(columns, column_max, new_prefix, depth + 1, result);
+    }
+}
+
+// Function to check if a word matches a pattern
+static bool matches_pattern(const char *word, const char *pattern) {
+    for (int i = 0; pattern[i] != '\0'; i++) {
+        if (pattern[i] != '.' && pattern[i] != word[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Function to find matching words
+static void find_matching_words(char word_list[MAX_WORD_COUNT][WORD_LENGTH], int word_count,
+                         Set *patterns, Set *result) {
+    bool found = false;
+    for (int i = 0; i < patterns->size; i++) {
+        logger(DEBUG, "Pattern: %s", patterns->elements[i].string_element);
+        found = false;
+        for (int j = 0; j < word_count; j++) {
+            if (matches_pattern(word_list[j], patterns->elements[i].string_element)) {
+                logger(DEBUG, "Match: %s", word_list[j]);
+                set_add(result, word_list[j]);
+                found = true;
+            }
+        }
+        if (!found) {
+            logger(DEBUG, "No matches found");
+        }
+    }
+}
+
+static bool is_combination_valid(Set column_sets[GRID_SIZE], char words[GRID_SIZE][WORD_LENGTH],
+                                 int word_count) {
+    Set test_set[GRID_SIZE];
+    // Copy needed letters to a test set
+    for (int i = 0; i < GRID_SIZE; i++) {
+        set_init(&test_set[i], CHAR_TYPE);
+        for (int j = 0; j < column_sets[i].size; j++) {
+            set_add(&test_set[i], column_sets[i].elements[j].char_element);
+        }
+    }
+    
+    // Remove letters from set that are in the words
+    for (int i = 0; i < word_count; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            set_remove(&test_set[j], words[i][j]);
+        }
+    }
+
+    // Check if all letters are used
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (test_set[i].size != 0) {
+            return false; // Word combination doesn't use all letters
+        }
+    }
+
+    return true; // Word combination uses all letters
+}
+
+static bool find_combination(Set column_sets[GRID_SIZE], Set *possible_words,
+                             char combination[GRID_SIZE][WORD_LENGTH], 
+                             int depth, int max_depth, int start_index, int end_index) {
+    if (depth == max_depth) {
+        bool result = is_combination_valid(column_sets, combination, max_depth);
+        return result;
+    }
+
+    for (int i = start_index; i < end_index; i++) {
+        strncpy(combination[depth], possible_words->elements[i].string_element, WORD_LENGTH);
+        if (find_combination(column_sets, possible_words, combination, depth + 1, max_depth,
+                             0, possible_words->size)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 // Function to check if word1 can replace word2
 bool is_redundant(const char *word1, const char *word2, char columns[GRID_SIZE][GRID_SIZE]) {
@@ -957,19 +810,10 @@ int filter_possible_words(char words[MAX_WORD_COUNT][WORD_LENGTH], int word_coun
     return filtered_count;
 }
 
-int find_minimum_only(char columns[GRID_SIZE][GRID_SIZE],
+int find_minimum_solution(char columns[GRID_SIZE][GRID_SIZE],
                       char words[MAX_WORD_COUNT][WORD_LENGTH]) {
-    pid_t pids[NUM_PROCESSES];
     int err_code = 0;
-    int current_combination_index = 0;
     bool result = false;
-
-    pthread_mutex_lock(&m_shared_data->mutex);
-    m_shared_data->minimum_solution_found = false;
-    pthread_mutex_unlock(&m_shared_data->mutex);
-
-    // Set up signal handler for SIGTERM
-    signal(SIGTERM, sigterm_handler);
 
     // Force everything lowercase
     for (int i = 0; i < MAX_WORD_COUNT; i++) {
@@ -998,8 +842,8 @@ int find_minimum_only(char columns[GRID_SIZE][GRID_SIZE],
         }
     }
 
-    if (logger_get_level() == INFO) {
-        logger(INFO, "Column sets...");
+    if (logger_get_level() == DEBUG) {
+        logger(DEBUG, "Column sets...");
         for (int i = 0; i < GRID_SIZE; i++) {
             set_print(&column_sets[i]);
         }
@@ -1014,7 +858,8 @@ int find_minimum_only(char columns[GRID_SIZE][GRID_SIZE],
     }
     if (max_set_length == GRID_SIZE) {
         logger(INFO, "No minimum solution possible for given board state");
-        return 1;
+        err_code = 1;
+        return err_code;
     }
     logger(INFO, "Theoretical minimum number of words to solve: %d", max_set_length);
 
@@ -1075,64 +920,36 @@ int find_minimum_only(char columns[GRID_SIZE][GRID_SIZE],
         set_print(&filtered_words);
     }
 
-    for (int i = 0; i < NUM_PROCESSES; i++) {
-        pids[i] = fork();
-        if (pids[i] < 0) {
-            logger(ERROR, "Fork failed");
-            err_code = 1;
-            return err_code;
-        } else if (pids[i] == 0) {
-            // Child process
-            logger(INFO, "[%d] Starting", getpid());
+    struct timeval start, end;
+    int hours, minutes, seconds;
+    double elapsed_time;
 
-            while (1) {
-                pthread_mutex_lock(&m_shared_data->mutex);
-                current_combination_index = m_shared_data->next_combination_index;
-                m_shared_data->next_combination_index++;
-                pthread_mutex_unlock(&m_shared_data->mutex);
+    gettimeofday(&start, NULL);
 
-                if (current_combination_index < all_words.size) {
-                    char minimum_combination[GRID_SIZE][WORD_LENGTH] = {0};
-                    result = find_combination(column_sets, &filtered_words,
-                                                   minimum_combination, 0, max_set_length,
-                                                   current_combination_index,
-                                                   current_combination_index + 1);
-                    if (result) {
-                        logger(INFO, "[%d] Minimum solutions found...", getpid());
-                        for (int i = 0; i < max_set_length; i ++) {
-                            for (int j = 0; j < GRID_SIZE; j++) {
-                                fprintf(stderr, "%c", minimum_combination[i][j]);
-                            }
-                            fprintf(stderr, "\n");
-                        }
-                        terminate_processes(pids);
-                        pthread_mutex_lock(&m_shared_data->mutex);
-                        m_shared_data->minimum_solution_found = true;
-                        pthread_mutex_unlock(&m_shared_data->mutex);
-                        break;
-                    }
-                } else {
-                    // All first row words have been tried
-                    break;
-                }
-                m_combinations++;
+    char minimum_combination[GRID_SIZE][WORD_LENGTH] = {0};
+    result = find_combination(column_sets, &filtered_words,
+                              minimum_combination, 0, max_set_length,
+                              0, filtered_count);
+    if (result) {
+        logger(INFO, "Minimum solutions found...");
+        for (int i = 0; i < max_set_length; i ++) {
+            for (int j = 0; j < GRID_SIZE; j++) {
+                fprintf(stderr, "%c", minimum_combination[i][j]);
             }
-            exit(0);
-        } else {
-            // Parent process
+            fprintf(stderr, "\n");
         }
-    }
-
-    // Wait for all child processes to finish
-    for (int i = 0; i < NUM_PROCESSES; i++) {
-        waitpid(pids[i], NULL, 0);
-    }
-
-    pthread_mutex_lock(&m_shared_data->mutex);
-    if (m_shared_data->minimum_solution_found == false) {
+    } else {
         logger(INFO, "No minimum solution found");
     }
-    pthread_mutex_unlock(&m_shared_data->mutex);
+
+    gettimeofday(&end, NULL);
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    hours = (int) (elapsed_time / 3600);
+    minutes = (int) ((elapsed_time - (hours * 3600)) / 60);
+    seconds = (int) (elapsed_time - (hours * 3600) - (minutes * 60));
+    logger(INFO, "Execution time: %02d:%02d:%02d", hours, minutes, seconds);
+
+    logger(INFO, "Done");
 
     return err_code;
 }

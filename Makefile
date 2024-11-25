@@ -25,13 +25,23 @@ $(OBJ)/%.o: $(SRC)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Test build
-test:
+tests:
 	./tests/run_tests.sh
 
 # Run the main executable
 run: $(TARGET)
 	$(TARGET)
 
+# Run only the solver
+solver: $(TARGET)
+	$(TARGET) -s
+
+# Run only the minimum solution finder
+minimum: $(TARGET)
+	$(TARGET) -m
+
 # Additional build commands
 clean:
 	$(RM) -r $(BIN)/* $(OBJ)/*
+
+.PHONY: all tests run solver minimum clean

@@ -72,22 +72,19 @@ int main(int argc, char* argv[]) {
         }
 
         if (args.find_minimum == true) {
-            err_code = find_minimum(game_board, words);
+            err_code = find_minimum_solutions(game_board, words);
             if (err_code) {
                 cleanup();
                 exit(err_code);
             }
         }
-    }
-
-    if (args.find_minimum == true) {
-        err_code = find_minimum_only(columns, words);
+    } else {
+        err_code = find_minimum_solution(columns, words);
         if (err_code) {
             cleanup();
             exit(err_code);
         }
     }
-
 
     cleanup();
 

@@ -13,7 +13,6 @@
 
 int compare_arrays(char arr1[GRID_SIZE][GRID_SIZE], char arr2[GRID_SIZE][GRID_SIZE]);
 int is_repeated_word(char grid[GRID_SIZE][GRID_SIZE], char word[], int row);
-void print_grid(char grid[GRID_SIZE][GRID_SIZE]);
 int fits_in_row(char solution[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE],
                 char word[], int row);
 void place_word(char solution[GRID_SIZE][GRID_SIZE], char word[], int row);
@@ -22,12 +21,13 @@ void remove_word(char board[GRID_SIZE][GRID_SIZE], char solution[GRID_SIZE][GRID
 int solver(char board[GRID_SIZE][GRID_SIZE], char unplaced[GRID_SIZE][GRID_SIZE],
            char unused[], int unused_length, char words[MAX_WORD_COUNT][WORD_LENGTH]);
 
-int find_minimum(char board[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH]);
-int find_minimum_only(char columns[GRID_SIZE][GRID_SIZE], char words[MAX_WORD_COUNT][WORD_LENGTH]);
+int find_minimum_solution(char columns[GRID_SIZE][GRID_SIZE],
+                          char words[MAX_WORD_COUNT][WORD_LENGTH]);
+int find_minimum_solutions(char board[GRID_SIZE][GRID_SIZE],
+                           char words[MAX_WORD_COUNT][WORD_LENGTH]);
 int filter_possible_words(char words[MAX_WORD_COUNT][WORD_LENGTH], int word_count,
                           char columns[GRID_SIZE][GRID_SIZE],
                           char filtered_words[MAX_WORD_COUNT][WORD_LENGTH]);
-bool is_redundant(const char *word1, const char *word2, char columns[GRID_SIZE][GRID_SIZE]);
 
 int setup();
 void cleanup();
